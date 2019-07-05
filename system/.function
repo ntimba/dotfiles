@@ -1,0 +1,254 @@
+userprofile () {
+	# utilisation de l'application
+	# USERPROFILE=$(userprofile)
+	# echo $USERPROFILE
+	win_userprofile="$(cmd.exe /c "<nul set /p=%UserProfile%" 2>/dev/null)"
+
+	win_userprofile_drive="${win_userprofile%%:*}:"
+	userprofile_mount="$(findmnt --noheadings --first-only --output TARGET "$win_userprofile_drive")"
+
+	win_userprofile_dir="${win_userprofile#*:}"
+
+	userprofile="${userprofile_mount}${win_userprofile_dir//\\//}"
+
+	output="${userprofile}/${1}"
+	echo $output
+}
+
+nvidia_drivers () 
+{
+	# sources : https://linuxconfig.org/how-to-install-the-nvidia-drivers-on-ubuntu-18-04-bionic-beaver-linux
+	# Detecte la carte graphique
+	ubuntu-drivers devices
+	# Installation des drivers
+	sudo ubuntu-drivers autoinstall
+}
+
+make_executable () 
+{
+	# rendre les fichier d'un dossier exécutable
+	for file in `ls $1`
+	do
+		sudo chmod +x $1/$file
+	done
+}
+
+dotfiles_pull () {
+	# $2 fichier du dotfiles
+	# $1 fichier de l'ordinateur
+
+	# si le fichier n'existe pas dans le dotfiles
+	if [[ ! -f $2 ]]; then
+		echo "le fichier $1 n'existe pas dans le dotfiles, il va être importer"
+		# on importe le fichier dans le dotfiles
+		cp $1 $2 # copie le fichier dans le dotfiles
+	else
+		# si le fichier existe déjà, on vérifie
+		if [[ $(diff "$1" "$2") ]]; then
+			rm $2
+			cp $1 $2 # copie le fichier dans le dotfiles
+			echo "la mise à jour a été faite sur le fichier $2"
+			echo "faite la commande : dotfiles [push] pour mettre à jour votre système "
+		else
+			echo "Tout est à jour"
+		fi
+	fi
+
+	# la fonction va recupérer tout les nouveaux pacquet installer dans le sytème
+}
+
+dotfiles_push () {
+	# $1 fichier du dotfiles
+	# $2 fichier de l'ordinateur
+	# exemple : dotfiles_push $DOTFILES/git/.gitconfig ~/.gitconfig
+	# 
+	if [[ -f $2 ]]; then # si le fichier existe, on le compare avec celui du dotfiles
+
+		if [[ $(diff "$1" "$2") ]]; then
+			# si les fichier sont différent, on recupère le fichier du dotfiles
+			mv $2 "$2.bak";
+			ln -svf $1 $2
+		else
+			echo "Vos fichier de configuration sont à jour"
+		fi
+
+	else
+		ln -svf $1 $2
+		echo "à jour"
+	fi
+}
+
+open_in_IDE () {
+	subl $1
+}
+
+dotfiles_clean () {
+	sudo apt-get autoclean
+	sudo npm cache clean --force
+	sudo brew cleanup
+  	sudo gem cleanup
+}
+
+dotfiles_update () {
+  	sudo npm install npm -g
+  	sudo npm update -g
+  	sudo gem update --system
+  	sudo apt update && sudo apt upgrade
+  	sudo snap refresh
+}
+# dotfile config -----------------------------------------------
+writer_dotfiles_config () {
+	# entrer une clé plus une valeur
+	# si la valeur existe déjà il sera ecraser par la nouvelle
+	# ne supporte pas des espaces ni caractère spécaiux
+	# reçois trois parametre 1. filename à écrire, 2. la clé, 3. la valeur
+
+	# $key="$1"
+	# $value="$2"
+	# $filename="$3"
+
+	# vérifier si un mot existe déjà dans un fichier
+
+	# $filename=$2
+	# $search_word=$1
+
+	# if [[ ! $(grep "$1$" $3) ]]; then # si le mot n'existe pas dans le fichier on l'écrit
+	# 	echo "$1:$2" >> $3
+	# else
+	# 	echo "le mot choisi existe dans le fichier $2"
+	# 	echo "faite la commande : dotfiles [ config ] pour modifier le fichier de configuration"
+	# fi
+
+	if [[ ! $(grep "$1" $3 ) ]]; then
+		# echo "la valeur clé n'existe pas dans le fichier, on peux le créer"
+		if [[ ! $(grep "$1:$2" $3) ]]; then
+			echo "$1:$2" >> $3
+			echo "$1:$2 viens d'etre ajouter dans .dotfilesconfig"
+		else
+			echo "$1:$2 existe déjà dans $3"
+			echo "faite la commande : dotfiles [ config ] pour modifier le fichier de configuration dotfiles"
+		fi
+
+	else
+		echo "la clé $1 existe déjà dans $3"
+		echo "faite la commande : dotfiles [ config ] pour modifier sa valeur "
+	fi
+}
+
+reader_dotfiles_config () {
+	# 1. entrer une clé , il va retourner une valeur
+	# si le mot clé existe dans le fichier, on renvoi sa valeur
+	# $1 => le mot clé, $2 => le nom du fichier
+	# utilisation : reader_dotfiles_config "web" ~/.dotfilesconfig
+	if [[ $(grep "$1" $2) ]]; then
+		sed -n "s/$1\://gp" $2
+	else
+		echo "Erreur : "
+	fi
+}
+
+# la fonction sera utiliser pour mettre à jour le fichier .dotfilesconfig
+search_replace () {
+	# la fonction rechercher remplacer
+	# exemple search_replace "display_errors = Off" "display_errors = On" "/etc/php/7.0/apache2/php.ini"
+
+	# $filename=$3
+	# $search_word=$1
+	# $replace_word=2
+
+	# demande la valeur clé à modifier
+	sudo sed -i "s/${1}/${2}/g" $3
+}
+
+dotfiles_config_update () {
+	# $2 => nom du fichier à modifier
+	case $1 in
+		"firstname" )
+			read -p "Entrer votre ancien prénom : " oldfirstname
+			read -p "Entrer votre nouveau prénom : " newfirstname
+			search_replace "firstname:$oldfirstname" "firstname:$newfirstname" $2
+			;;
+		"lastname")
+			read -p "Entrer votre ancien nom de famille : " oldlastname
+			read -p "Entrer votre nouveau nom de famille : " newlastname
+			search_replace "lastname:$oldlastname" "lastname:$newlastname" $2
+			
+			;; 
+		"email")
+			read -p "Entrer votre ancien email : " oldemail
+			read -p "Entrer votre nouveau email : " newemail
+			search_replace "email:$oldemail" "email:$newemail" $2
+
+			;;
+		"web")
+			read -p "Entrer votre ancien site web : " oldweb
+			read -p "Entrer votre ancien site web : " newweb
+			search_replace "web:$oldweb" "web:$newweb" $2
+
+			;;
+		"ide")
+			read -p "Entrer votre ancien IDE : " oldide
+			read -p "Entrer votre nouveau IDE : " newide
+			search_replace "ide:$oldide" "ide:$newide" $2
+			
+			;;
+		*)
+			echo -e "dotfiles [ config ] firstname \t\t pour modifier ton prénom dans fichier ~/.dotfilesconfig"
+			echo -e "dotfiles [ config ] lastname \t\t pour modifier ton prénom dans fichier ~/.dotfilesconfig"
+			echo -e "dotfiles [ config ] email \t\t pour modifier ton prénom dans fichier ~/.dotfilesconfig"
+			echo -e "dotfiles [ config ] web \t\t pour modifier ton site dans fichier ~/.dotfilesconfig"
+			echo -e "dotfiles [ config ] ide \t\t pour modifier ton IDE par défaut dans fichier ~/.dotfilesconfig"
+		;;
+	esac
+}
+
+install_package () {
+	while read line
+	do
+		# ne pas lire des commentaires
+		#pat="^#[a-z ',]+"
+		pat="^#[a-z (),éà'-]+"
+		if [[ $line =~ $pat ]]; then
+			comment=${line}
+		fi
+
+		if [[ $line != $comment && ! -z $line ]]; then
+			if [[ $1 = 'apt install' ]]; then
+				sudo $1 -y $line
+			else
+				sudo $1 $line
+			fi
+		fi
+
+	done < $2
+}
+
+
+direBonjour () {
+	echo "Bonjour $1"
+}
+
+
+# Function pour creer une clé ssh
+generate_ssh_keys () {
+	# generer le ssh-keygen
+	read -p "Votre Mot de passe bitbucket : " -s password
+
+	echo -ne "\n\n\n" | ssh-keygen -t rsa
+	# modifier le mot de passe
+	ssh-keygen -p  -N "$password" -f ~/.ssh/id_rsa
+
+	echo "# Copier le texte qui commence par ssh-rsa" >> ~/id_rsa.pub_copy
+	cat ~/.ssh/id_rsa.pub >> $USERHOME/id_rsa.pub_copy
+
+	kernel=$(os kernel)
+	case $kernel in
+		"linux")
+			sudo apt install gedit
+			gedit $USERHOME/id_rsa.pub_copy
+		;;
+		"wsl")
+			notepad.exe $USERHOME/id_rsa.pub_copy
+		;;
+	esac
+}

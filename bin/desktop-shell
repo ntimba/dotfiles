@@ -1,0 +1,14 @@
+#!/usr/bin/env bash 
+
+# à ameliorer (peut être ajouter dans dotfiles/system/.function)
+shells=(
+	gnome-shell
+	kde-shell
+	)
+
+for shell in ${shells[*]}
+do
+	if [[ $( which $shell ) ]]; then
+		echo $shell
+	fi
+done 

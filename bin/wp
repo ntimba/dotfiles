@@ -1,0 +1,201 @@
+#!/usr/bin/env bash
+
+# l'application va permettre l'installation des application web comme 
+# - Wordpress
+# - Joomla
+# - etc ...
+
+# https://codex.wordpress.org/Installing_WordPress
+
+# Entrer le nom de domaine
+# installer automatiquement l'application dans le dossier /htdocs/$DOMAIN
+# changer le propriétaire du dossier www-data
+# sudo chown -R yourname:www-data cake
+
+
+# wget https://wordpress.org/latest.tar.gz # télécharger la dernier version de wordpress
+# tar -xzvf latest.tar.gz
+
+
+
+# Entrer le nom de domaine
+# télécharger l'application dans le dossier htdocs/$DOMAIN
+
+
+
+userprofile () {
+	# utilisation de l'application
+	# USERPROFILE=$(userprofile)
+	# echo $USERPROFILE
+	win_userprofile="$(cmd.exe /c "<nul set /p=%UserProfile%" 2>/dev/null)"
+
+	win_userprofile_drive="${win_userprofile%%:*}:"
+	userprofile_mount="$(findmnt --noheadings --first-only --output TARGET "$win_userprofile_drive")"
+
+	win_userprofile_dir="${win_userprofile#*:}"
+
+	userprofile="${userprofile_mount}${win_userprofile_dir//\\//}"
+
+	output="${userprofile}/${1}"
+	echo $output
+}
+search_replace () {
+	sudo sed -i "s/${1}/${2}/g" $3
+}
+
+download_wp () {
+	# download_wp "$HOME/public_html${domainname}"
+	wget -P $1 https://wordpress.org/latest.tar.gz
+	tar -xzvf $1/latest.tar.gz -C $1
+
+	mv $1/wordpress/* $1
+	rm -r $1/wordpress/
+	rm -r $1/latest.tar.gz
+}
+
+repeat_as_long_negative () {
+	# Utilisation : de la fonction : repeat_as_long_negative $pattern $text
+	pattern="${1}" # format du nom de domaine : domain.ltd
+	text="${2}"
+	while [[ -z $variable ]] || [[ ! $variable =~ $pattern ]]; do
+		read -p "${text}" variable
+	done
+	echo $variable
+}
+
+repeat_as_long_empty () {
+	# Utilisation : de la fonction : repeat_as_long_negative $pattern $text
+	# Utilisation : de la fonction : repeat_as_long_empty $text 'pass'
+	text="${1}"
+	pass="${2}"
+	while [[ -z $variable ]]; do
+		if [[ $pass != 'pass' ]]; then
+			read -p "$text" variable
+		else
+			read -p "$text" -s variable
+		fi
+	done
+	echo $variable
+}
+# ----------------------------------
+# Changer le propiétaire du fichier en www-data
+# ----------------------------------
+OS=$(os kernel)
+# mysql_user=
+# mysql_pass=
+case $OS in
+	'linux' )
+		# liste des sites disponiple
+		sites="/etc/apache2/sites-available"
+		echo -e "\tListe des nom de domain "
+		echo -e "\t*********************** "
+		for domain in $(ls $sites)
+		do
+			if [ $domain != 000-default.conf ] && [ $domain != default-ssl.conf ] && [ $domain != localhost.conf ]; then
+				echo "$domain" | sed "s/\.conf/ /g"
+			fi
+		done
+		echo -e "\n"
+		# --------------------------
+
+		domainname=$(repeat_as_long_negative '[a-z]{1,}\.[a-z]{2,6}' "Dans quel domain voulez-vous installer wordpress ? : ")
+
+		# si le repertoir de travail existe on telecharge wordpress
+		work_dir="$HOME/public_html/${domainname}"
+		if [[ -d $work_dir ]]; then
+			# echo "dossier de travail existe"
+			download_wp "$work_dir"
+			sudo chown -R www-data $work_dir
+			sudo chmod -R 774 $work_dir
+		fi
+
+
+		# echo $domainname
+		# Si le nom de domain n'existe pas on le créer
+
+
+
+		# mysql_user=$(repeat_as_long_empty "MySQL username : " "text")
+		# mysql_pass=$(repeat_as_long_empty "MySQL password : " "pass")
+
+		# ---------------------------
+		# for site in $(ls $sites)
+		# do
+		# 	website=$( echo $site | sed "s/\.conf/ /g" )
+		# 	if [[ $website != $domainname ]]; then
+		# 		echo "le domain n'existe pas il va être créer maintenant"
+		# 	fi
+		# done
+
+		# echo -ne "$domainname\ny\n$(echo $mysql_user )\n$(echo $mysql_pass)\n" | lamp new
+		# download_wp "$HOME/public_html${domainname}"
+		# sudo chown -R www-data "$HOME/public_html${domainname}"
+
+		# ----------------------------
+		#echo -ne "1\nfresh_installed_system\n" | recovery
+
+
+
+	
+
+
+		# domainname=$(repeat_as_long_negative '[a-z]{1,}\.[a-z]{2,6}' "Ou voulez-vous installer wordpress ? : ")
+
+		# repertoir_travail="${public_html}$domainname"
+
+		# if [[ ! -d $repertoir_travail ]]; then
+		# 	echo "Le repertoire de travail n'existe pas encore"
+		# 	echo " ***"
+		# 	# créer un nouveau nom de domaine
+		# 	lamp new
+		# 	echo " ***"
+
+		# 	download_wp $repertoir_travail
+		# 	# affecter le dossier à www-data
+		# 	sudo chown -R www-data $repertoir_travail
+		# else		
+		# 	# Téléchargement du fichier
+		# 	download_wp $repertoir_travail
+		# 	sudo chown -R www-data $repertoir_travail
+		# fi
+		;;
+esac
+
+# # Téléchargement du fichier
+# wget -P $repertoir_travail https://wordpress.org/latest.tar.gz
+# tar -xzvf $repertoir_travail/latest.tar.gz -C $repertoir_travail
+
+# mv $repertoir_travail/wordpress/* $repertoir_travail
+# rm -r $repertoir_travail/wordpress/
+# rm -r $repertoir_travail/latest.tar.gz
+
+# search_replace "display_errors = On" "display_errors = Off" "/etc/php/7.0/apache2/php.ini"
+
+# dbuser
+# dbpassword
+# dbname
+
+
+# nom de l'utiliser
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Créer une base de données
+#read -p "Entrer le nom de la base de données " DBNAME
+#for i in $( cat /tmp/fruits ); do echo "INSERT INTO fruits (fruit) values ($i);" | mysql -u root -p password  mydatabase; done
+#mysql -e "CREATE DATABASE ${DBNAME} /*\!40100 DEFAULT CHARACTER SET utf8 */;"
+
+# configurer le fichier wp-config
+
+# créer un nouveau utilisateur pour mysql

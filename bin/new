@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+
+# new wordpress (wp) : créer un nouveau site wordpress
+# new mysql user : créer un nouvel utilisateur mysql
+# new mysql database (db) : crée une nouvel base de donnée
+# new domain : crée un nouveau nom de domain
+# 	Affiche les donnée du nouveau nom de domain : public_html/domain
+
+# wordpress
+# mysql
+# 	user
+# 	database
+# domain
+# new secure domain
+
+# Les fonctions
+repeat_as_long_negative () {
+	# Utilisation : de la fonction : repeat_as_long_negative $pattern $text
+	pattern="${1}" # format du nom de domaine : domain.ltd
+	text="${2}"
+	# while [[ -z $variable ]] || [[ $variable =~ $pattern ]]; do
+	while [[ -z $variable ]] || [[ ! $variable =~ $pattern ]]; do
+		read -p "${text}" variable
+	done
+	echo $variable | sed "s/\./_/g"
+}
+repeat_as_long_positiv () {
+	# Utilisation : de la fonction : repeat_as_long_positiv $pattern $text
+	pattern="${1}" # format du nom de domaine : domain.ltd
+	text="${2}"
+	# while [[ -z $variable ]] || [[ ! $variable =~ $pattern ]]; do
+	while [[ -z $variable ]] || [[ $variable =~ $pattern ]]; do
+		read -p "${text}" variable
+	done
+	echo $variable | sed "s/\./_/g"
+}
+
+case $1 in
+	'domain' | 'site' )
+		case $2 in
+			'secure' )
+				domain ssl
+			;;
+			'nosecure')
+				domain new
+			;;
+			'host')
+				domain new_host
+			;;
+			*)
+				echo -e "new domain [site] secure \t\t Pour créer un nom de domaine sécurisé"
+				echo -e "new domain [site] nosecure \t\t Pour créer un nom de domaine sécurisé"
+				echo -e "new domain [site] host \t\t Pour créer un nom de domaine sécurisé"
+			;;
+		esac
+	;;
+	'wordpress' | 'wp' )
+		wp
+	;;
+	'mysql' )
+		case $2 in
+			'user' )
+				newuser mysql
+			;;
+			'database' | 'db' )
+				# fonction pour créer une base de données
+				create_database () {	
+					# Utilisation : create_database $db_name		
+					# Créer une base de données
+					db_name="${1}"
+					if [[ -f ~/create_database.sql ]]; then
+						sudo rm ~/create_database.sql
+					fi
+					mysql_user=$(repeat_as_long_negative "[a-zA-Z_-]{2,}" "Mysql Username: ")
+
+					touch $HOME/create_database.sql
+					echo "CREATE DATABASE IF NOT EXISTS $db_name;" >> $HOME/create_database.sql
+					mysql -u $(echo $mysql_user) -p < $HOME/create_database.sql
+					rm $HOME/create_database.sql
+				}
+				# une fonction pour créer la base de données
+
+				want_create_db_now=$(repeat_as_long_negative "[a-zA-Z]{1,3}" "Do you want to create a new database ? [Y/n] : ")
+				case $want_create_db_now in
+					'y' | 'yes' )
+						db_name=$(repeat_as_long_positiv "[a-z]+ [a-z]{1,}$" "Entrer le nom de la base de données : ")
+						create_database $db_name
+						;;
+					'n' | 'no' )
+						echo "No database was created"
+						;;
+					*)
+						db_name=$(repeat_as_long_positiv "[a-z]+ [a-z]{1,}$" "Entrer le nom de la base de données : ")
+						create_database $db_name
+						;;
+				esac
+			;;
+		esac
+	;;
+	*)
+	echo -e "new secure domain \t\t\t ajouter un nom de domaine sécurisé"
+	echo -e "new domain \t\t\t\t ajouter un nom de domaine"
+	echo -e "new [wordpress] ou [wp] \t\t Télécharger wordpress"
+	echo -e "new [mysql] [user] \t\t\t ajouter un utilisateur mysql"
+	echo -e "new [mysql] [database] ou [db] \t\t ajouter une base de donnée"
+	;;
+esac
+

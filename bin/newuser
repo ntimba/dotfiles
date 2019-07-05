@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# peut être améliorer et ajouter dans functions 
+case $1 in
+	'mysql' )
+		if [[ -f ~/newuser.sql ]]; then
+			sudo rm ~/newuser.sql
+		fi
+		echo "Création d'un nouveau utilisateur mysql : "
+		read -p "Nom d'utilisateur MySQL : " username
+		read -p "Votre nom nouveau mot de passe mariaDB(MySQL) : " -s mysql_new_pass
+
+		# créer un fichier newuser.sql à la racine de l'utilisateur
+		touch ~/newuser.sql
+		echo "CREATE USER '$username'@'localhost' IDENTIFIED BY '$mysql_new_pass';" >> ~/newuser.sql
+		echo "GRANT ALL PRIVILEGES ON *.* TO '$username'@'localhost' WITH GRANT OPTION;" >> ~/newuser.sql
+		echo "FLUSH PRIVILEGES;" >> ~/newuser.sql
+
+		sudo mysql -u root -p < ~/newuser.sql
+
+		rm ~/newuser.sql
+		;;
+	'linux')
+		echo "Fonction pas encore créer"
+		;;
+esac

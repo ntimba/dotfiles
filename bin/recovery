@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+
+# Utilisation
+# echo -ne "1\nfresh_installed_system\n" | recovery
+# lire le dossier .recovery
+
+# créer un dossier dans le home de l'utilisateur 
+recoveryDir=~/.recovery
+mkdir -p $recoveryDir
+
+# date recovery
+recoveryPoint=$(date +%F"_"%T)
+
+
+echo -e "[1] Créer un point de restauration"
+echo -e "[2] Restaurer à partir d'une date\n"
+
+read -p "Saisissez un numéro : " choice
+case $choice in
+	1)
+		# créer un point de restauration
+		echo "Créer un point de restauration"
+		read -p  "Nom de votre point de restauration [facultatif] : " recoveryName
+		
+		if [[ -z $recoveryName ]]; then
+			recoveryName="$recoveryPoint"
+
+			# mettre à jour le système
+			sudo apt update && sudo apt upgrade -y
+
+			# Enregistrement dans le fichier texte "PointDeRestauration-Date.txt" de la liste des paquets déjà installés.
+			dpkg --get-selections > "$recoveryDir/$recoveryName"
+
+		else
+			recoveryName="${recoveryPoint}_${recoveryName}"
+
+			# mettre à jour le système
+			sudo apt update && sudo apt upgrade -y
+
+			# Enregistrement dans le fichier texte "PointDeRestauration-Date.txt" de la liste des paquets déjà installés.
+			dpkg --get-selections > "$recoveryDir/$recoveryName"
+		fi
+		;;
+	2)
+		# Lire le dossier #~/.recovery
+		numbers_of_files=$(ls .recovery/ | wc -l)
+
+		echo "Liste des points de restauration"
+		for file in $(ls $recoveryDir)
+		do
+			echo "[x] $file"
+		done
+
+		# Entrer le nom de point de restauration
+		echo -e "\n\t *** Copier et coller le nom de fichier afficher ci-dessous ***"
+		read -p "Entrer le nom de point de restauration : " File_recovery
+
+		# Marquage de tous les paquets pour la désinstallation.
+		sudo dpkg --clear-selections
+
+		# Marquage de tous les paquets à installer avec le contenu du fichier texte "PointDeRestauration-Date.txt".
+		sudo dpkg --set-selections < "$recoveryDir/$File_recovery"
+
+		# Application des modifications effectuer sur la liste des paquets qui ont été marqués.
+		sudo apt-get dselect-upgrade -y
+
+		;;
+	*)
+		echo "Aide"
+	;;
+esac
+

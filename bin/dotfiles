@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+DOTFILES=~/.dotfiles
+if [[ -d $DOTFILES ]]; then
+	source $DOTFILES/system/.function
+else
+	echo "Impossible de charger .function"
+fi
+
+
+case $1 in
+	'uninstall' | '-u' )
+			# fonction pour desinstaller dotfiles
+			unlink ~/.profile
+			unlink ~/.bash_aliases
+			if [[ -f $HOME/.profile.bak ]]; then
+				mv $HOME/.profile.bak $HOME/.profile
+			fi
+
+			echo -e "\n Dotfiles est desinstallé"
+		;;
+	'new' | 'add')
+			case $2 in
+				'ssh-key' )
+					generate_ssh_keys
+					;;
+			esac
+			echo "Ajouter une clé ssh <dotfiles add ssh-key>"
+		;;
+		*)
+			echo "Commande du dotfiles"
+			echo "new/add => pour ajouter un truc"
+			echo "uninstall/ -u => pour desinstallé dotfiles"
+		;;
+esac

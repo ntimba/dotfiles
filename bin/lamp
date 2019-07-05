@@ -1,0 +1,346 @@
+#!/usr/bin/env bash
+
+# à ameliorée : si les application sont déjà installer ne pas exécuté le script
+# créer plusieurs application exemple : lamp reload, lamp start etc..
+userprofile () {
+	# utilisation de l'application
+	# USERPROFILE=$(userprofile)
+	# echo $USERPROFILE
+	win_userprofile="$(cmd.exe /c "<nul set /p=%UserProfile%" 2>/dev/null)"
+
+	win_userprofile_drive="${win_userprofile%%:*}:"
+	userprofile_mount="$(findmnt --noheadings --first-only --output TARGET "$win_userprofile_drive")"
+
+	win_userprofile_dir="${win_userprofile#*:}"
+
+	userprofile="${userprofile_mount}${win_userprofile_dir//\\//}"
+
+	output="${userprofile}/${1}"
+	echo $output
+}
+localhost_in_hosts () {
+	# Utilisation de la fonction : 
+	# write_domain_in_hosts $DOMAIN
+	if [[ ! $(grep "$1$" /etc/hosts) ]]; then 
+		sudo bash -c "echo -e '\n# $1' >> /etc/hosts"
+		sudo bash -c "echo -e '127.0.0.1 \t$1' >> /etc/hosts"
+	else
+		echo "le domain choisi existe dans le fichier /etc/hosts"
+	fi
+}
+# domain_in_hosts () {
+# 	# Utilisation de la fonction : 
+# 	# write_domain_in_hosts $DOMAIN
+# 	DOMAIN="${1}.mik"
+# 	if [[ ! $(grep "$DOMAIN$" /etc/hosts) ]]; then 
+# 		sudo bash -c "echo -e '\n# $1' >> /etc/hosts"
+# 		sudo bash -c "echo -e '127.0.0.1 \t$DOMAIN' >> /etc/hosts"
+# 	else
+# 		echo "le domain choisi existe dans le fichier /etc/hosts"
+# 	fi
+# }
+write_domain_in_hosts () {
+	DOMAIN="${1}"
+	if [[ ! $(grep "$DOMAIN$" /etc/hosts) ]]; then 
+		sudo bash -c "echo -e '\n# $DOMAIN' >> /etc/hosts"
+		sudo bash -c "echo -e '127.0.0.1 \t$DOMAIN' >> /etc/hosts"
+	else
+		echo "le domain choisi existe dans le fichier /etc/hosts"
+	fi
+}
+
+search_replace () {
+# la fonction rechercher remplacer
+	# search_replace_php_ini ChaineRecherchee chaineremplacer fichier.txt
+	sudo sed -i "s/${1}/${2}/g" $3
+}
+
+domain_conf () { 
+	# Paramètre 1 : le nom de domaine, Paramètre 2 : le nom du dossier du nom de domaine
+	# domain_conf $DOMAIN $DOMAIN
+	DOMAIN="${1}.mik"
+	DOMAIN_CONF="${DOMAIN}.conf"
+	VHOST_CONF="/etc/apache2/sites-available/${DOMAIN_CONF}"
+	if [[ ! -f "$VHOST_CONF" ]]; then
+		sudo bash -c "echo -e '<VirtualHost *:80>' >> $VHOST_CONF"
+		sudo bash -c "echo -e '\tServerName $DOMAIN' >> $VHOST_CONF"
+		sudo bash -c "echo -e '\tServerAdmin hello@ntimba.com' >> $VHOST_CONF"
+		sudo bash -c "echo -e '\tDocumentRoot /var/www/html/${2}' >> $VHOST_CONF"
+		sudo bash -c "echo -e '\tErrorLog /var/log/apache2/$1.error.log' >> $VHOST_CONF"
+		sudo bash -c "echo -e '\tCustomLog /var/log/apache2/$1.access.log combined' >> $VHOST_CONF"
+		sudo bash -c "echo -e '\tLogLevel warn' >> $VHOST_CONF"
+		sudo bash -c "echo -e '</VirtualHost>' >> $VHOST_CONF"
+	else
+		echo "Le fichier VirtualHost existe déjà"
+	fi
+}
+help () { # la fonction affiche de l'aide pour l'installation de dotfiles
+  echo "Usage: $BIN_NAME <command>"
+  echo
+  echo "Commands:"
+  echo "  lamp install               Installation lamp"
+  echo "  lamp uninstall             Desinstallation lamp"
+  echo "  lamp start                 Demarrage des serveurs"
+  echo "  lamp stop                  Stoppe les serveurs"
+  echo "  lamp restart               Redemarre les serveurs"
+  echo "  lamp status                Status des serveurs"
+  echo "  lamp mailon                activer l'envoi des emails"
+  echo "  lamp mailoff               desactiver l'envoi des emails"
+  echo "  lamp displayerror on       Affiche les erreurs et les notices"
+  echo "  lamp displayerror off      Affiche les erreurs et les notices"
+  echo "  lamp new                   Ajoute un nouveau nom de domaine"
+  echo "  lamp delete                Supprime le nom de domaine"
+  echo "  lamp reset-mysql           Re-configurer mysql (si vous avez perdu le mot de passe root)"
+
+  echo -e "\t"
+  echo "  Astuce "
+  echo "  ------ "
+  echo "  lamp delete > com          Supprime tout les nom de domaine qui fini par com"
+}
+mysql_user () {
+	# mysql_user $USERNAME $PASSWORD
+	for i in $( cat /tmp/fruits ); do echo "INSERT INTO fruits (fruit) values ($i);" | mysql -u root -p password  mydatabase; done
+
+	echo "Création de l'utilisateur de la base de données"
+	read -p "Entrer nouveau nom d'utilisateur mysql : " USERNAME
+	read -p "MySQL : " -s PASSWORD
+
+	read -p "Entrer nouveau nom d'utilisateur mysql : " USERNAME
+	read -p "Créer un nouveau mot de passe pour l'utilisateur '${USERNAME}' mysql : " -s PASSWORD
+	
+	CREATE USER $USERNAME@'localhost' IDENTIFIED BY $PASSWORD;
+	GRANT ALL PRIVILEGES $USERNAME@'localhost';
+}
+# sources : https://www.tecmint.com/install-lamp-with-phpmyadmin-in-ubuntu-18-04/
+lamp=(
+	apache2
+	mariadb-server
+	mariadb-client
+	php
+	php-common
+	php-mysql
+	php-gd
+	php-cli
+	php-intl
+)
+
+# commande apache
+# sudo systemctl status apache2
+# sudo systemctl status mysql
+
+#fichier php.ini de php 
+phpini_apache="/etc/php/7.2/apache2/php.ini"
+
+case $1 in
+    "install")
+		# ***installation de apache *** 
+		sudo apt update && sudo apt upgrade
+		for line in "${lamp[@]}"
+		do 	
+			if [[ ! $(which $line) ]]; then
+		    	sudo apt-get install -y $line
+		    else
+		    	echo "$line est installé"
+			fi
+		done 
+		# Point de restauration
+		echo -ne "1\nLAMP_installation\n" | recovery
+
+		OS=$(os)
+		case $OS in
+			'linux')
+				# Créé le dossier public_html
+				public_html='public_html'
+				if [[ ! -d $HOME/$public_html ]]; then
+					mkdir $HOME/$public_html
+					echo "Repertoire de travail créé"
+				else
+					echo "Repertoire de travail existe "
+				fi
+
+				# Crée le reccourci de public_html dans /var/www/html
+				if [[ ! -d /var/www/html/public_html ]]; then
+					sudo ln -sr $public_html /var/www/html
+				fi
+
+				# renommer le fichier /var/www/html/index.html
+				if [[ -f /var/www/html/index.html ]]; then
+					sudo rm /var/www/html/index.html
+				fi
+
+				# créer le nom de domaine localhost
+				DOMAIN="localhost"
+				domain_conf $DOMAIN "public_html"
+
+				# Activer le site internet
+				DOMAIN_CONF="${DOMAIN}.conf"
+				sudo a2ensite $DOMAIN_CONF
+
+				# inscrire le domaine dans le fichier /etc/hosts
+				localhost_in_hosts $DOMAIN
+
+				# backup php.ini
+				phpini=$(php -i | grep /.+/php.ini -oE)
+				if [[ -f $phpini && ! -f "$phpini.bak" ]]; then
+					sudo cp $phpini "$phpini.bak"
+					if [[ -f "$phpini.bak" ]]; then
+						echo "[ php.ini ] copy created"
+					fi
+				else
+					echo "copy of [ php.ini ] exist "
+				fi
+
+				# Configuration de mysql 
+				read -p "Voulez vous configurer mysql et installation phpmyadmin ? : " mysqlconfig
+				case $mysqlconfig in
+					'yes' )
+					~/.dotfiles/scripts/configmysql.sh 
+					sudo apt install phpmyadmin
+						;;
+				esac
+
+				# demarrer apache2
+				sudo service apache2 start
+			;;	
+			'windows')
+				# créer le dossier public_html
+				public_html=$(userprofile 'public_html')
+				public_html_bak="${public_html}.bak"
+
+				if [[ -d $public_html_bak ]]; then
+					mv $public_html_bak $public_html
+				elif [[ ! -d $public_html ]]; then
+					mkdir $public_html
+				fi
+
+				# creer le raccourci de public_html dans /var/www/html
+				if [[ ! -d /var/www/html/public_html ]]; then
+					sudo ln -sr $public_html /var/www/html
+				fi
+
+				if [[ -f /var/www/html/index.html ]]; then
+					sudo rm /var/www/html/index.html
+				fi
+
+				# créer le nom de domaine localhost
+				DOMAIN="localhost"
+				domain_conf $DOMAIN "public_html"
+
+				# activer le site internet
+				DOMAIN_CONF="${DOMAIN}.conf"
+				sudo a2ensite $DOMAIN_CONF
+
+				# inscrire le domaine dans le fichier /etc/hosts
+				localhost_in_hosts $DOMAIN
+
+				# backup php.ini
+				phpini=$(php -i | grep /.+/php.ini -oE)
+				if [[ -f $phpini && ! -f "$phpini.bak" ]]; then
+					sudo cp $phpini "$phpini.bak"
+					if [[ -f "$phpini.bak" ]]; then
+						echo "[ php.ini ] copy created"
+					fi
+				else
+					echo "copy of [ php.ini ] exist "
+				fi
+
+				# créer utilisateur base de données
+				# mysql_user $USERNAME $PASSWORD
+				
+				# configuration mysql manuellement
+				echo " Pour configurer le mot de passe mysql : "
+				echo "./.dotfiles/scripts/configmysql.sh"
+			;;
+			*)
+			echo "aide"
+			;;
+		esac
+        ;;
+    "uninstall")
+		for line in "${lamp[@]}"
+		do
+		    sudo apt-get autoremove -y $line
+		done
+		
+		# renommer le dossier public_html en public_html_bak
+		public_html=$(userprofile 'public_html')
+		public_html_bak="${public_html}.bak"
+		if [[ -d $public_html ]]; then mv $public_html $public_html_bak; fi
+
+		# supprimer le raccourci dans /var/www/html
+		if [[ -d /var/www/html/public_html ]]; then sudo unlink /var/www/html/public_html; fi
+
+		# desactiver le domaine localhost
+		if [[ -f /etc/apache2/sites-enabled/localhost.conf ]]; then sudo a2dissite localhost.conf; fi
+
+		# supprimer le fichier de configuration localhost.conf
+		if [[ -f /etc/apache2/sites-available/localhost.conf ]]; then sudo rm /etc/apache2/sites-available/localhost.conf; fi
+		# Afficher le message
+		echo "LAMP à bien été supprimer"
+		# redemarre le server apache2
+		sudo service apache2 reload
+        ;;
+    "new")
+		domain new
+		;;
+	"delete")
+		domain delete
+		;;
+	"start")
+		sudo service apache2 start
+		sudo service mysql start
+		;;
+	"stop")
+		sudo service apache2 stop
+		sudo service mysql stop
+		;;
+	"restart")
+		sudo service apache2 restart
+		sudo service mysql restart
+		;;
+	"status")
+		sudo service apache2 status
+		sudo service mysql status
+		;;
+	"mailon")
+		search_replace ";sendmail_path =" "sendmail_path = \/usr\/sbin\/sendmail -t -i" "$phpini_apache"
+		sudo /etc/init.d/apache2 restart
+		
+		;;
+	"mailoff")
+		search_replace "sendmail_path = \/usr\/sbin\/sendmail -t -i" ";sendmail_path =" "$phpini_apache"
+		sudo /etc/init.d/apache2 restart
+		
+		;;
+	"displayerror")
+		case $2 in
+			"on")
+				# affiche les erreur
+				# phpini=$(php -i | grep /.+/php.ini -oE)
+				# search_replace "display_errors = Off" "display_errors = On" "$phpini"
+				# sudo /etc/init.d/apache2 restart
+
+				# affiche les erreur
+				search_replace "display_errors = Off" "display_errors = On" "$phpini_apache"
+				sudo /etc/init.d/apache2 restart
+			;;
+			"off")
+				# n'affiche pas les erreur
+				search_replace "display_errors = On" "display_errors = Off" "$phpini_apache"
+				sudo /etc/init.d/apache2 restart
+			;;
+			*)
+			# Petite documentation
+			echo "lamp displayerror on 		Affiche les erreur PHP"
+			echo "lamp displayerror off 	n'affiche pas les erreur PHP"
+			;;
+		esac
+		;;
+	"" | "-h" | "--help")
+		help
+		;;
+        *)
+		echo "./lamp install : installer lamp"
+		echo "./lamp uninstall : desinstaller lamp"
+       	;;
+esac

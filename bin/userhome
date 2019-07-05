@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+# peut être améliorer et ajouter dans dotfiles/system/.function
+
+OS=$(os kernel)
+case $OS in
+	'linux' )
+		echo $HOME
+		;;
+	'wsl' )
+		win_userprofile="$(cmd.exe /c "<nul set /p=%UserProfile%" 2>/dev/null)"
+
+		win_userprofile_drive="${win_userprofile%%:*}:"
+		userprofile_mount="$(findmnt --noheadings --first-only --output TARGET "$win_userprofile_drive")"
+
+		win_userprofile_dir="${win_userprofile#*:}"
+
+		userprofile="${userprofile_mount}${win_userprofile_dir//\\//}"
+
+		echo "/mnt/c$userprofile"
+		;;
+esac
+
+

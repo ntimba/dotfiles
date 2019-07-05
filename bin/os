@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+
+# Detecteur de l'OS, uniquement compatible avec windows subsystem for linux & linux
+detect_os () {
+	linux_dist=(
+		debian
+		ubuntu
+		slackware
+		suse
+		gentoo
+		redhat
+		arch
+		fedora
+		)
+
+	OS=$(uname -v)
+	if [[ $(grep -i 'microsoft' <<< $OS) ]]; then
+		echo "wsl"
+	else
+		for distribution in ${linux_dist[*]}
+		do
+			if [[ $(grep -i $distribution <<< $OS) ]] 
+			then
+				case $1 in
+					'kernel' )
+						echo 'linux'
+						;;
+					'')
+						echo $distribution
+						;;
+				esac
+			fi
+		done
+	fi 
+}
+
+case $1 in
+	'machine')
+		if [[ ! $(which imvirt) ]]; then
+			sudo apt install -y imvirt
+		fi
+
+		if [[ $(sudo imvirt) = 'KVM' ]]; then
+			echo "virtual"
+		fi
+
+		;;
+	'distr' )
+		detect_os
+		;;
+	'kernel' )
+		detect_os kernel
+		;;
+	*)
+		echo -e "os distr 	\t\t Affiche le nom de la distribution"
+		echo -e "os kernel 	\t\t Affiche le nom du kernel [linux nativ ou wsl]"
+		echo -e "os machine \t\t Affiche le type de machine utilisé [Physical ou KVM]"
+	;;
+esac
