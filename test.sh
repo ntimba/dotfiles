@@ -347,6 +347,6 @@ case $OS in
 		;;
 	'wsl')
 		# repertoire de travail sera créer dans /mnt/c/Users/username/public_html
-		echo "mettre en place systeme windows"
+		# echo "mettre en place systeme windows"
 		;;
 esac
