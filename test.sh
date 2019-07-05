@@ -3,66 +3,15 @@
 DOTFILES="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 export DOTFILES
 
+# Le script va créer un nouveau nom de domaine
 
-# à ameliorée : si les application sont déjà installer ne pas exécuté le script
-# créer plusieurs application exemple : lamp reload, lamp start etc..
-userprofile () {
-	# utilisation de l'application
-	# USERPROFILE=$(userprofile)
-	# echo $USERPROFILE
-	win_userprofile="$(cmd.exe /c "<nul set /p=%UserProfile%" 2>/dev/null)"
 
-	win_userprofile_drive="${win_userprofile%%:*}:"
-	userprofile_mount="$(findmnt --noheadings --first-only --output TARGET "$win_userprofile_drive")"
-
-	win_userprofile_dir="${win_userprofile#*:}"
-
-	userprofile="${userprofile_mount}${win_userprofile_dir//\\//}"
-
-	output="${userprofile}/${1}"
-	echo $output
-}
-localhost_in_hosts () {
-	# Utilisation de la fonction : 
-	# write_domain_in_hosts $DOMAIN
-	if [[ ! $(grep "$1$" /etc/hosts) ]]; then 
-		sudo bash -c "echo -e '\n# $1' >> /etc/hosts"
-		sudo bash -c "echo -e '127.0.0.1 \t$1' >> /etc/hosts"
-	else
-		echo "le domain choisi existe dans le fichier /etc/hosts"
-	fi
-}
-# domain_in_hosts () {
-# 	# Utilisation de la fonction : 
-# 	# write_domain_in_hosts $DOMAIN
-# 	DOMAIN="${1}.mik"
-# 	if [[ ! $(grep "$DOMAIN$" /etc/hosts) ]]; then 
-# 		sudo bash -c "echo -e '\n# $1' >> /etc/hosts"
-# 		sudo bash -c "echo -e '127.0.0.1 \t$DOMAIN' >> /etc/hosts"
-# 	else
-# 		echo "le domain choisi existe dans le fichier /etc/hosts"
-# 	fi
-# }
-write_domain_in_hosts () {
-	DOMAIN="${1}"
-	if [[ ! $(grep "$DOMAIN$" /etc/hosts) ]]; then 
-		sudo bash -c "echo -e '\n# $DOMAIN' >> /etc/hosts"
-		sudo bash -c "echo -e '127.0.0.1 \t$DOMAIN' >> /etc/hosts"
-	else
-		echo "le domain choisi existe dans le fichier /etc/hosts"
-	fi
-}
-
-search_replace () {
-# la fonction rechercher remplacer
-	# search_replace_php_ini ChaineRecherchee chaineremplacer fichier.txt
-	sudo sed -i "s/${1}/${2}/g" $3
-}
-
-domain_conf () { 
+# Les fonctions
+create_virtual_host_file () { 
 	# Paramètre 1 : le nom de domaine, Paramètre 2 : le nom du dossier du nom de domaine
 	# domain_conf $DOMAIN $DOMAIN
-	DOMAIN="${1}.mik"
+	# Utilisation de la fonction : domain_conf $DOMAIN $DOMAIN 
+	DOMAIN="${1}"
 	DOMAIN_CONF="${DOMAIN}.conf"
 	VHOST_CONF="/etc/apache2/sites-available/${DOMAIN_CONF}"
 	if [[ ! -f "$VHOST_CONF" ]]; then
@@ -73,189 +22,311 @@ domain_conf () {
 		sudo bash -c "echo -e '\tErrorLog /var/log/apache2/$1.error.log' >> $VHOST_CONF"
 		sudo bash -c "echo -e '\tCustomLog /var/log/apache2/$1.access.log combined' >> $VHOST_CONF"
 		sudo bash -c "echo -e '\tLogLevel warn' >> $VHOST_CONF"
+
+		sudo bash -c "echo -e '\t<Directory /var/www/html/$DOMAIN>' >> $VHOST_CONF"
+		sudo bash -c "echo -e '\t\tOptions FollowSymLinks' >> $VHOST_CONF"
+		sudo bash -c "echo -e '\t\tAllowOverride All' >> $VHOST_CONF"
+		sudo bash -c "echo -e '\t\tRequire all granted' >> $VHOST_CONF"
+		sudo bash -c "echo -e '\t</Directory>' >> $VHOST_CONF"
+		
 		sudo bash -c "echo -e '</VirtualHost>' >> $VHOST_CONF"
 	else
 		echo "Le fichier VirtualHost existe déjà"
 	fi
 }
-help () { # la fonction affiche de l'aide pour l'installation de dotfiles
-  echo "Usage: $BIN_NAME <command>"
-  echo
-  echo "Commands:"
-  echo "  lamp install               Installation lamp"
-  echo "  lamp uninstall             Desinstallation lamp"
-  echo "  lamp start                 Demarrage des serveurs"
-  echo "  lamp stop                  Stoppe les serveurs"
-  echo "  lamp restart               Redemarre les serveurs"
-  echo "  lamp status                Status des serveurs"
-  echo "  lamp mailon                activer l'envoi des emails"
-  echo "  lamp mailoff               desactiver l'envoi des emails"
-  echo "  lamp displayerror on       Affiche les erreurs et les notices"
-  echo "  lamp displayerror off      Affiche les erreurs et les notices"
-  echo "  lamp new                   Ajoute un nouveau nom de domaine"
-  echo "  lamp delete                Supprime le nom de domaine"
-  echo "  lamp reset-mysql           Re-configurer mysql (si vous avez perdu le mot de passe root)"
 
-  echo -e "\t"
-  echo "  Astuce "
-  echo "  ------ "
-  echo "  lamp delete > com          Supprime tout les nom de domaine qui fini par com"
+create_virtual_host_file_ssl () { 
+	# Paramètre 1 : le nom de domaine, Paramètre 2 : le nom du dossier du nom de domaine
+	# domain_conf $DOMAIN $DOMAIN
+	# Utilisation de la fonction : domain_conf $DOMAIN $DOMAIN 
+	DOMAIN="${1}"
+	DOMAIN_CONF="${DOMAIN}.conf"
+	VHOST_CONF="/etc/apache2/sites-available/${DOMAIN_CONF}"
+	private_key=$(echo $HOME/.domain_crt/${DOMAIN}.key)
+	signature_crt=$(echo $HOME/.domain_crt/${DOMAIN}.crt)
+
+	if [[ ! -f "$VHOST_CONF" ]]; then
+		sudo bash -c "echo -e '<VirtualHost *:443>' >> $VHOST_CONF"
+		sudo bash -c "echo -e '\tServerName $DOMAIN' >> $VHOST_CONF"
+		sudo bash -c "echo -e '\tSSLEngine on' >> $VHOST_CONF"
+		sudo bash -c "echo -e '\tSSLCertificateFile \"$signature_crt\"' >> $VHOST_CONF"
+		sudo bash -c "echo -e '\tSSLCertificateKeyFile \"$private_key\"' >> $VHOST_CONF"
+		sudo bash -c "echo -e '\tServerAdmin hello@ntimba.com' >> $VHOST_CONF"
+		sudo bash -c "echo -e '\tDocumentRoot /var/www/html/${2}' >> $VHOST_CONF"
+		sudo bash -c "echo -e '\tErrorLog /var/log/apache2/$1.error.log' >> $VHOST_CONF"
+		sudo bash -c "echo -e '\tCustomLog /var/log/apache2/$1.access.log combined' >> $VHOST_CONF"
+		sudo bash -c "echo -e '\tLogLevel warn' >> $VHOST_CONF"
+
+		sudo bash -c "echo -e '\t<Directory /var/www/html/$DOMAIN>' >> $VHOST_CONF"
+		sudo bash -c "echo -e '\t\tOptions FollowSymLinks' >> $VHOST_CONF"
+		sudo bash -c "echo -e '\t\tAllowOverride All' >> $VHOST_CONF"
+		sudo bash -c "echo -e '\t\tRequire all granted' >> $VHOST_CONF"
+		sudo bash -c "echo -e '\t</Directory>' >> $VHOST_CONF"
+
+		sudo bash -c "echo -e '</VirtualHost>' >> $VHOST_CONF"
+	else
+		echo "Le fichier VirtualHost existe déjà"
+	fi
 }
-mysql_user () {
-	# mysql_user $USERNAME $PASSWORD
-	for i in $( cat /tmp/fruits ); do echo "INSERT INTO fruits (fruit) values ($i);" | mysql -u root -p password  mydatabase; done
 
-	echo "Création de l'utilisateur de la base de données"
-	read -p "Entrer nouveau nom d'utilisateur mysql : " USERNAME
-	read -p "MySQL : " -s PASSWORD
 
-	read -p "Entrer nouveau nom d'utilisateur mysql : " USERNAME
-	read -p "Créer un nouveau mot de passe pour l'utilisateur '${USERNAME}' mysql : " -s PASSWORD
-	
-	CREATE USER $USERNAME@'localhost' IDENTIFIED BY $PASSWORD;
-	GRANT ALL PRIVILEGES $USERNAME@'localhost';
-}
-# sources : https://www.tecmint.com/install-lamp-with-phpmyadmin-in-ubuntu-18-04/
-lamp=(
-	apache2
-	mariadb-server
-	mariadb-client
-	php
-	php-common
-	php-mysql
-	php-gd
-	php-cli
-	php-intl
-)
-
-# commande apache
-# sudo systemctl status apache2
-# sudo systemctl status mysql
-
-#fichier php.ini de php 
-phpini_apache="/etc/php/7.2/apache2/php.ini"
-
-case $1 in
-    "install")
-		# ***installation de apache *** 
-		sudo apt update && sudo apt upgrade
-		for line in "${lamp[@]}"
-		do 	
-			if [[ ! $(which $line) ]]; then
-		    	sudo apt-get install -y $line
-		    else
-		    	echo "$line est installé"
+create_database () {
+# Utilisation de la fonction : create_database $db_name
+	read -p "Do you want to create a new database ( Database Name : $1 ) ? [Y/n] : " create_db_now
+	db_name="${1}"
+	case $create_db_now in
+		'y' | 'yes' )
+			# Créer une base de données
+			if [[ -f ~/create_database.sql ]]; then
+				sudo rm ~/create_database.sql
 			fi
-		done 
-		# Point de restauration
-		echo -ne "1\nLAMP_installation\n" | recovery
+			read -p "Mysql Username: " mysql_user
 
-		# créer le dossier public_html
-		public_html="$USERNAME/public_html"
+			touch $HOME/create_database.sql
+			echo "CREATE DATABASE IF NOT EXISTS $db_name;" >> $HOME/create_database.sql
+			mysql -u $(echo $mysql_user) -p < $HOME/create_database.sql
+			rm $HOME/create_database.sql
+			;;
+		'n' | 'no' )
+			# on ne fais rien
+			echo "Database was not created"
+			;;
+		*)
+			# Créer une base de données
+			echo "*** fonctions à venir ***"
+			echo "*** definir la fonction par défaut [Y/n] ***"
+			;;
+	esac
+}
+
+write_domain_in_hosts () {
+	DOMAIN="${1}"
+	if [[ ! $(grep "$DOMAIN$" /etc/hosts) ]]; then 
+		sudo bash -c "echo -e '# $DOMAIN' >> /etc/hosts"
+		sudo bash -c "echo -e '127.0.0.1 \t$DOMAIN' >> /etc/hosts"
+	else
+		echo "le domain choisi existe dans le fichier /etc/hosts"
+	fi
+}
 
 
+write_domain_in_hosts_locally () {
+        DOMAIN="${1}"
+        if [[ ! $(grep "$DOMAIN$" /etc/hosts) ]]; then
+                sudo bash -c "echo -e '# $DOMAIN' >> /etc/hosts"
+                sudo bash -c "echo -e '127.0.0.1 \t$DOMAIN' >> /etc/hosts"
+        else
+                echo "le domain choisi existe dans le fichier /etc/hosts"
+        fi
+}
+
+
+
+repeat_as_long_negative () {
+	# Utilisation : de la fonction : repeat_as_long_negative $pattern $text
+	pattern="${1}" # format du nom de domaine : domain.ltd
+	text="${2}"
+	while [[ -z $variable ]] || [[ ! $variable =~ $pattern ]]; do
+		read -p "${text}" variable
+	done
+	echo $variable
+}
+
+delete_database () {
+	# db_name="${1}"
 	
+	# Entrer le nom de la base de données
+	read -p "Mysql Database name: " db_name
+	# username mysql
+	read -p "Mysql Username: " mysql_user
+	# password mysql
+	# script pour supprimer la base de données
+	if [[ -f ~/delete_database.sql ]]; then rm ~/delete_database.sql; fi
+	echo "DROP DATABASE IF EXISTS $db_name;" >> $HOME/delete_database.sql
+	mysql -u $(echo $mysql_user) -p < $HOME/delete_database.sql
+	rm $HOME/delete_database.sql
+}
 
 
+OS=$(os kernel)
+case $OS in
+	'linux' )
+		case $1 in
+			'list')
+				sites="/etc/apache2/sites-available"
+				echo -e "\tListe des domain Name "
+				echo -e "\t********************* "
+				for domain in $(ls $sites)
+				do
+					if [ $domain != 000-default.conf ] && [ $domain != default-ssl.conf ] && [ $domain != localhost.conf ]; then
+						echo $domain | sed "s/\.conf/ /g"
+					fi
+				done
+				;;
 
-		OS=$(os kernel)
-		case $OS in
-			'linux')
-	
-			;;	
-			'windows')
+			"ssl" )
+				# sudo openssl req -x509 -days 365 -newkey rsa:2048 -keyout $HOME/localhost.key -out $HOME/localhost.crt
+				if [[ ! -d $HOME/.domain_crt ]]; then
+					mkdir $HOME/.domain_crt
+				fi
+				# Entrer nom de domaine
+				domainname=$(repeat_as_long_negative '[a-z]{1,}\.[a-z]{2,6}' "Enter your new domain name : ")
 
-			;;
+				if [[ ! -f "$HOME/.domain_crt/${domainname}.key" ]] && [[ ! -f "$HOME/.domain_crt/${domainname}.crt" ]]; then
+					sudo openssl req -x509 -days 365 -newkey rsa:2048 -keyout $HOME/.domain_crt/$(echo "${domainname}.key" ) -out $HOME/.domain_crt/$(echo "${domainname}.crt")
+					# Créer le fichier virtualhost ssl
+					create_virtual_host_file_ssl $domainname $domainname
+				fi
+				# créer la base de données
+				new mysql database
+				# créer le repertoire de travail
+				public_html="$HOME/public_html"
+				if [[ ! -d $public_html ]]; then mkdir $public_html; fi
+
+				work_dir="${public_html}/${domainname}"
+				if [[ ! -d $work_dir ]]; then mkdir $work_dir; fi
+				# sudo chown -R www-data "$work_dir"
+
+				# créer un lien symbolique dans /var/www/html/domain
+				sudo ln -sr $work_dir /var/www/html
+				# write domain in host
+				write_domain_in_hosts $domainname
+				
+				# créer le fichier virtualhost_ssl
+				create_virtual_host_file_ssl $domainname $domainname 
+
+				# attribuer les droits
+				sudo chown -R www-data $work_dir
+				sudo chmod -R 774 $work_dir
+				
+				# activer le site avec a2ensite
+				sudo a2ensite "${domainname}.conf"
+				sudo a2enmod ssl
+				sudo a2enmod rewrite
+				# redemarre apache
+				sudo systemctl reload apache2
+				;;
+			'new' )
+				# Entrer nom de domaine
+				domainname=$(repeat_as_long_negative '[a-z]{1,}\.[a-z]{2,6}' "Enter your new domain name : ")
+				# créer la base de données
+				new mysql database
+				# créer le repertoire de travail
+				public_html="$HOME/public_html"
+				if [[ ! -d $public_html ]]; then mkdir $public_html; fi
+
+				work_dir="${public_html}/${domainname}"
+				if [[ ! -d $work_dir ]]; then mkdir $work_dir; fi
+				# sudo chown -R www-data "$work_dir"
+
+				# attribuer les droits
+				sudo chown -R www-data $work_dir
+				sudo chmod -R 774 $work_dir
+
+				sudo ln -sr $work_dir /var/www/html
+				write_domain_in_hosts $domainname
+				# créer le fichier virtualhost dans /etc/apache2/sites-available/domain.ltd.conf
+				create_virtual_host_file $domainname $domainname 
+				sudo a2ensite "${domainname}.conf"
+				sudo a2enmod rewrite
+				sudo systemctl restart apache2
+				;;
+			'new_name' )
+				# Utilisation : domain new_name
+				# Entrer nom de domaine
+				domainname=${2}
+
+				# créer le repertoire de travail
+				public_html="$HOME/public_html"
+				if [[ ! -d $public_html ]]; then mkdir $public_html; fi
+
+				work_dir="${public_html}/${domainname}"
+				if [[ ! -d $work_dir ]]; then mkdir $work_dir; fi
+				# sudo chown -R www-data "$work_dir"
+
+				# attribuer les droits
+				sudo chown -R www-data $work_dir
+				sudo chmod -R 774 $work_dir
+
+				sudo ln -sr $work_dir /var/www/html
+				write_domain_in_hosts $domainname
+				# créer le fichier virtualhost dans /etc/apache2/sites-available/domain.ltd.conf
+				create_virtual_host_file $domainname $domainname 
+				sudo a2ensite "${domainname}.conf"
+				sudo a2enmod rewrite
+				sudo systemctl restart apache2
+				;;
+			'new_host' )
+				# Inscrire le domaine dnas le host
+				domainname=$(repeat_as_long_negative '[a-z]{1,}\.[a-z]{2,6}' "Enter your new domain name : ")
+				write_domain_in_hosts $domainname
+				;;
+			'delete')
+				# lister les fichiers du dossier : éalsdkj
+				# lister la liste des sites
+				public_html="$HOME/public_html"
+				sites="/etc/apache2/sites-available"
+				echo -e "\tDomain Name "
+				echo -e "\t*********** "
+				for domain in $(ls $sites)
+				do
+					if [ $domain != 000-default.conf ] && [ $domain != default-ssl.conf ] && [ $domain != localhost.conf ]; then
+						echo $domain | sed "s/\.conf/ /g"
+					fi
+				done
+
+				# Entrer le nom de domaine à supprimer
+				read -p "Copy and paste the domain name here : " domainname
+				
+				# 1. supprimer la base de données ? 
+				db_name=$(echo $domainname | sed "s/\./_/g")
+				read -p "Do you want to delete the database ? [y/N] : " del_db
+				case $del_db in
+					'y' | 'yes' )
+						delete_database $db_name
+						;;
+					'n' | 'no' )
+						echo "Auccune base de données n'as été supprimer "
+						;;
+					*)
+						echo "Auccune base de données n'as été supprimer "
+						;;
+				esac
+
+				# supprimer les certificat 
+				if [[ -f "$HOME/.domain_crt/${domainname}.crt" || -f "$HOME/.domain_crt/${domainname}.key" ]]; then
+					sudo rm "$HOME/.domain_crt/${domainname}.crt"
+					sudo rm "$HOME/.domain_crt/${domainname}.key"
+				fi
+				# 2. supprimer le lien symbolique dans /var/www/html
+				sudo unlink "/var/www/html/${domainname}"
+				# 3. supprimer le repertoire de travail ?
+				sudo rm -r "${public_html}/${domainname}"
+				# 4. effacer le domaine dans /etc/hosts
+				sudo sed -i "/# $domainname$/d" /etc/hosts 						  
+				sudo sed -i "/127.0.0.1 \t$domainname$/d" /etc/hosts
+				# 5. desactiver le site avec la fonction a2dissite
+				sudo a2dissite $domainname
+				# 6. supprimer le fichier de configuration dans /etc/apache2/sites-available/domain.ltd.conf
+				sudo rm "/etc/apache2/sites-available/${domainname}.conf"				
+				# 7. redemaree apache
+				sudo systemctl reload apache2
+				;;
+				# mettre à jour pour supprimer les domaines ssl
 			*)
-			echo "aide"
-			;;
-		esac
-        ;;
-    "uninstall")
-		for line in "${lamp[@]}"
-		do
-		    sudo apt-get autoremove -y $line
-		done
-		
-		# renommer le dossier public_html en public_html_bak
-		public_html=$(userprofile 'public_html')
-		public_html_bak="${public_html}.bak"
-		if [[ -d $public_html ]]; then mv $public_html $public_html_bak; fi
-
-		# supprimer le raccourci dans /var/www/html
-		if [[ -d /var/www/html/public_html ]]; then sudo unlink /var/www/html/public_html; fi
-
-		# desactiver le domaine localhost
-		if [[ -f /etc/apache2/sites-enabled/localhost.conf ]]; then sudo a2dissite localhost.conf; fi
-
-		# supprimer le fichier de configuration localhost.conf
-		if [[ -f /etc/apache2/sites-available/localhost.conf ]]; then sudo rm /etc/apache2/sites-available/localhost.conf; fi
-		# Afficher le message
-		echo "LAMP à bien été supprimer"
-		# redemarre le server apache2
-		sudo service apache2 reload
-        ;;
-    "new")
-		domain new
-		;;
-	"delete")
-		domain delete
-		;;
-	"start")
-		sudo service apache2 start
-		sudo service mysql start
-		;;
-	"stop")
-		sudo service apache2 stop
-		sudo service mysql stop
-		;;
-	"restart")
-		sudo service apache2 restart
-		sudo service mysql restart
-		;;
-	"status")
-		sudo service apache2 status
-		sudo service mysql status
-		;;
-	"mailon")
-		search_replace ";sendmail_path =" "sendmail_path = \/usr\/sbin\/sendmail -t -i" "$phpini_apache"
-		sudo /etc/init.d/apache2 restart
-		
-		;;
-	"mailoff")
-		search_replace "sendmail_path = \/usr\/sbin\/sendmail -t -i" ";sendmail_path =" "$phpini_apache"
-		sudo /etc/init.d/apache2 restart
-		
-		;;
-	"displayerror")
-		case $2 in
-			"on")
-				# affiche les erreur
-				# phpini=$(php -i | grep /.+/php.ini -oE)
-				# search_replace "display_errors = Off" "display_errors = On" "$phpini"
-				# sudo /etc/init.d/apache2 restart
-
-				# affiche les erreur
-				search_replace "display_errors = Off" "display_errors = On" "$phpini_apache"
-				sudo /etc/init.d/apache2 restart
-			;;
-			"off")
-				# n'affiche pas les erreur
-				search_replace "display_errors = On" "display_errors = Off" "$phpini_apache"
-				sudo /etc/init.d/apache2 restart
-			;;
-			*)
-			# Petite documentation
-			echo "lamp displayerror on 		Affiche les erreur PHP"
-			echo "lamp displayerror off 	n'affiche pas les erreur PHP"
-			;;
+				echo "*** Liste des commandes ***"
+				echo -e "domain list \t\t\t pour lister les sites dcréer un nouveau nom de domaine"
+				echo -e "domain new \t\t\t pour créer un nouveau nom de domaine"
+				echo -e "domain new_name \t\t pour créer un nouveau nom de domaine dans un script"
+				echo -e "domain new_host \t\t pour créer un nouveau nom de domaine depuis l'ordinateur Host et le serveur"
+				echo -e "domain delete \t\t\t pour créer un nouveau nom de domaine"
+				echo -e "domain ssl \t\t\t pour créer un nouveau nom de domaine"
+				echo -e "domain ssl install \t\t pour installer https en local"
+				;;
 		esac
 		;;
-	"" | "-h" | "--help")
-		help
+	'wsl')
+		# repertoire de travail sera créer dans /mnt/c/Users/username/public_html
+		echo "mettre en place systeme windows"
 		;;
-        *)
-		echo "./lamp install : installer lamp"
-		echo "./lamp uninstall : desinstaller lamp"
-       	;;
 esac
