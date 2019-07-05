@@ -55,6 +55,7 @@ source ~/.profile
 
 # rendre tout les fichiers du dotfiles exécutable
 make_executable $DOTFILES/bin
+make_executable $DOTFILES/scripts
 
 
 # installer les alias des commandes

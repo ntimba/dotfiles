@@ -146,115 +146,58 @@ case $1 in
 		# Point de restauration
 		echo -ne "1\nLAMP_installation\n" | recovery
 
-		OS=$(os)
-		case $OS in
-			'linux')
-				# Créé le dossier public_html
-				public_html='public_html'
-				if [[ ! -d $HOME/$public_html ]]; then
-					mkdir $HOME/$public_html
-					echo "Repertoire de travail créé"
-				else
-					echo "Repertoire de travail existe "
-				fi
+		# créer le dossier public_html
+		public_html="$USERHOME/public_html"
 
-				# Crée le reccourci de public_html dans /var/www/html
-				if [[ ! -d /var/www/html/public_html ]]; then
-					sudo ln -sr $public_html /var/www/html
-				fi
+		# 1. Créer le dossier public_html
+		if [[ ! -d $public_html ]]; then
+			mkdir $public_html
+		else
+			echo "Repertoire de travail existe"
+		fi
 
-				# renommer le fichier /var/www/html/index.html
-				if [[ -f /var/www/html/index.html ]]; then
-					sudo rm /var/www/html/index.html
-				fi
+		# 2. Créer le raccourci de public_html dans /var/www/html
+		if [[ ! -d /var/www/html/public_html ]]; then
+			sudo ln -sr $public_html /var/www/html
+		fi
 
-				# créer le nom de domaine localhost
-				DOMAIN="localhost"
-				domain_conf $DOMAIN "public_html"
+		# 3. Rénommer le fichier /var/www/html/index.html
+		if [[ -f /var/www/html/index.html ]]; then
+			sudo rm /var/www/html/index.html
+		fi
 
-				# Activer le site internet
-				DOMAIN_CONF="${DOMAIN}.conf"
-				sudo a2ensite $DOMAIN_CONF
+		# 4. Créer le nom de domaine localhost
+		DOMAIN="localhost"
+		domain_conf $DOMAIN "public_html"
 
-				# inscrire le domaine dans le fichier /etc/hosts
-				localhost_in_hosts $DOMAIN
+		# 5. Activier le site internet
+		DOMAIN_CONF="${DOMAIN}.conf"
+		sudo a2ensite $DOMAIN_CONF
 
-				# backup php.ini
-				phpini=$(php -i | grep /.+/php.ini -oE)
-				if [[ -f $phpini && ! -f "$phpini.bak" ]]; then
-					sudo cp $phpini "$phpini.bak"
-					if [[ -f "$phpini.bak" ]]; then
-						echo "[ php.ini ] copy created"
-					fi
-				else
-					echo "copy of [ php.ini ] exist "
-				fi
+		# 6. Inscrire le domaine dans le fichier /etc/hosts
+		localhost_in_hosts $DOMAIN
 
-				# Configuration de mysql 
-				read -p "Voulez vous configurer mysql et installation phpmyadmin ? : " mysqlconfig
-				case $mysqlconfig in
-					'yes' )
-					~/.dotfiles/scripts/configmysql.sh 
-					sudo apt install phpmyadmin
-						;;
-				esac
-
-				# demarrer apache2
-				sudo service apache2 start
-			;;	
-			'windows')
-				# créer le dossier public_html
-				public_html=$(userprofile 'public_html')
-				public_html_bak="${public_html}.bak"
-
-				if [[ -d $public_html_bak ]]; then
-					mv $public_html_bak $public_html
-				elif [[ ! -d $public_html ]]; then
-					mkdir $public_html
-				fi
-
-				# creer le raccourci de public_html dans /var/www/html
-				if [[ ! -d /var/www/html/public_html ]]; then
-					sudo ln -sr $public_html /var/www/html
-				fi
-
-				if [[ -f /var/www/html/index.html ]]; then
-					sudo rm /var/www/html/index.html
-				fi
-
-				# créer le nom de domaine localhost
-				DOMAIN="localhost"
-				domain_conf $DOMAIN "public_html"
-
-				# activer le site internet
-				DOMAIN_CONF="${DOMAIN}.conf"
-				sudo a2ensite $DOMAIN_CONF
-
-				# inscrire le domaine dans le fichier /etc/hosts
-				localhost_in_hosts $DOMAIN
-
-				# backup php.ini
-				phpini=$(php -i | grep /.+/php.ini -oE)
-				if [[ -f $phpini && ! -f "$phpini.bak" ]]; then
-					sudo cp $phpini "$phpini.bak"
-					if [[ -f "$phpini.bak" ]]; then
-						echo "[ php.ini ] copy created"
-					fi
-				else
-					echo "copy of [ php.ini ] exist "
-				fi
-
-				# créer utilisateur base de données
-				# mysql_user $USERNAME $PASSWORD
-				
-				# configuration mysql manuellement
-				echo " Pour configurer le mot de passe mysql : "
-				echo "./.dotfiles/scripts/configmysql.sh"
-			;;
-			*)
-			echo "aide"
-			;;
+		# 7. backup php.ini
+		phpini=$(php -i | grep /.+/php.ini -oE)
+		if [[ -f $phpini && ! -f "$phpini.bak" ]]; then
+			sudo cp $phpini "$phpini.bak"
+			if [[ -f "$phpini.bak" ]]; then
+				echo "[ php.ini ] copy created"
+			fi
+		else
+			echo "copy of [ php.ini ] exist "
+		fi
+		# 8. Configuration de mysql
+		read -p "Voulez vous configurer mysql et installation phpmyadmin ? yes: " mysqlconfig
+		case $mysqlconfig in
+			'yes' )
+			~/.dotfiles/scripts/configmysql.sh 
+			sudo apt install phpmyadmin
+				;;
 		esac
+		# 9. Démarrer apache2
+		sudo service apache2 start
+
         ;;
     "uninstall")
 		for line in "${lamp[@]}"

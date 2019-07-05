@@ -224,9 +224,6 @@ install_package () {
 }
 
 
-direBonjour () {
-	echo "Bonjour $1"
-}
 
 
 # Function pour creer une clé ssh
@@ -252,3 +249,5 @@ generate_ssh_keys () {
 		;;
 	esac
 }
+
+# Création de nom de domain
