@@ -176,7 +176,7 @@ case $1 in
 		# créer la base de données
 		new mysql database
 		# créer le repertoire de travail
-		public_html="$HOME/public_html"
+		public_html="$USERHOME/public_html"
 		if [[ ! -d $public_html ]]; then mkdir $public_html; fi
 
 		work_dir="${public_html}/${domainname}"
@@ -208,7 +208,7 @@ case $1 in
 		# créer la base de données
 		new mysql database
 		# créer le repertoire de travail
-		public_html="$HOME/public_html"
+		public_html="$USERHOME/public_html"
 		if [[ ! -d $public_html ]]; then mkdir $public_html; fi
 
 		work_dir="${public_html}/${domainname}"
@@ -233,7 +233,7 @@ case $1 in
 		domainname=${2}
 
 		# créer le repertoire de travail
-		public_html="$HOME/public_html"
+		public_html="$USERHOME/public_html"
 		if [[ ! -d $public_html ]]; then mkdir $public_html; fi
 
 		work_dir="${public_html}/${domainname}"
@@ -260,7 +260,7 @@ case $1 in
 	'delete')
 		# lister les fichiers du dossier : éalsdkj
 		# lister la liste des sites
-		public_html="$HOME/public_html"
+		public_html="$USERHOME/public_html"
 		sites="/etc/apache2/sites-available"
 		echo -e "\tDomain Name "
 		echo -e "\t*********** "
