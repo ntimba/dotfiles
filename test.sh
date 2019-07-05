@@ -147,183 +147,203 @@ delete_database () {
 	rm $HOME/delete_database.sql
 }
 
+case $1 in
+	'list')
+		sites="/etc/apache2/sites-available"
+		echo -e "\tListe des domain Name "
+		echo -e "\t********************* "
+		for domain in $(ls $sites)
+		do
+			if [ $domain != 000-default.conf ] && [ $domain != default-ssl.conf ] && [ $domain != localhost.conf ]; then
+				echo $domain | sed "s/\.conf/ /g"
+			fi
+		done
+		;;
+
+	"ssl" )
+		# sudo openssl req -x509 -days 365 -newkey rsa:2048 -keyout $HOME/localhost.key -out $HOME/localhost.crt
+		if [[ ! -d $HOME/.domain_crt ]]; then
+			mkdir $HOME/.domain_crt
+		fi
+		# Entrer nom de domaine
+		domainname=$(repeat_as_long_negative '[a-z]{1,}\.[a-z]{2,6}' "Enter your new domain name : ")
+
+		if [[ ! -f "$HOME/.domain_crt/${domainname}.key" ]] && [[ ! -f "$HOME/.domain_crt/${domainname}.crt" ]]; then
+			sudo openssl req -x509 -days 365 -newkey rsa:2048 -keyout $HOME/.domain_crt/$(echo "${domainname}.key" ) -out $HOME/.domain_crt/$(echo "${domainname}.crt")
+			# Créer le fichier virtualhost ssl
+			create_virtual_host_file_ssl $domainname $domainname
+		fi
+		# créer la base de données
+		new mysql database
+		# créer le repertoire de travail
+		public_html="$HOME/public_html"
+		if [[ ! -d $public_html ]]; then mkdir $public_html; fi
+
+		work_dir="${public_html}/${domainname}"
+		if [[ ! -d $work_dir ]]; then mkdir $work_dir; fi
+		# sudo chown -R www-data "$work_dir"
+
+		# créer un lien symbolique dans /var/www/html/domain
+		sudo ln -sr $work_dir /var/www/html
+		# write domain in host
+		write_domain_in_hosts $domainname
+		
+		# créer le fichier virtualhost_ssl
+		create_virtual_host_file_ssl $domainname $domainname 
+
+		# attribuer les droits
+		sudo chown -R www-data $work_dir
+		sudo chmod -R 774 $work_dir
+		
+		# activer le site avec a2ensite
+		sudo a2ensite "${domainname}.conf"
+		sudo a2enmod ssl
+		sudo a2enmod rewrite
+		# redemarre apache
+		sudo systemctl reload apache2
+		;;
+	'new' )
+		# Entrer nom de domaine
+		domainname=$(repeat_as_long_negative '[a-z]{1,}\.[a-z]{2,6}' "Enter your new domain name : ")
+		# créer la base de données
+		new mysql database
+		# créer le repertoire de travail
+		public_html="$HOME/public_html"
+		if [[ ! -d $public_html ]]; then mkdir $public_html; fi
+
+		work_dir="${public_html}/${domainname}"
+		if [[ ! -d $work_dir ]]; then mkdir $work_dir; fi
+		# sudo chown -R www-data "$work_dir"
+
+		# attribuer les droits
+		sudo chown -R www-data $work_dir
+		sudo chmod -R 774 $work_dir
+
+		sudo ln -sr $work_dir /var/www/html
+		write_domain_in_hosts $domainname
+		# créer le fichier virtualhost dans /etc/apache2/sites-available/domain.ltd.conf
+		create_virtual_host_file $domainname $domainname 
+		sudo a2ensite "${domainname}.conf"
+		sudo a2enmod rewrite
+		sudo systemctl restart apache2
+		;;
+	'new_name' )
+		# Utilisation : domain new_name
+		# Entrer nom de domaine
+		domainname=${2}
+
+		# créer le repertoire de travail
+		public_html="$HOME/public_html"
+		if [[ ! -d $public_html ]]; then mkdir $public_html; fi
+
+		work_dir="${public_html}/${domainname}"
+		if [[ ! -d $work_dir ]]; then mkdir $work_dir; fi
+		# sudo chown -R www-data "$work_dir"
+
+		# attribuer les droits
+		sudo chown -R www-data $work_dir
+		sudo chmod -R 774 $work_dir
+
+		sudo ln -sr $work_dir /var/www/html
+		write_domain_in_hosts $domainname
+		# créer le fichier virtualhost dans /etc/apache2/sites-available/domain.ltd.conf
+		create_virtual_host_file $domainname $domainname 
+		sudo a2ensite "${domainname}.conf"
+		sudo a2enmod rewrite
+		sudo systemctl restart apache2
+		;;
+	'new_host' )
+		# Inscrire le domaine dnas le host
+		domainname=$(repeat_as_long_negative '[a-z]{1,}\.[a-z]{2,6}' "Enter your new domain name : ")
+		write_domain_in_hosts $domainname
+		;;
+	'delete')
+		# lister les fichiers du dossier : éalsdkj
+		# lister la liste des sites
+		public_html="$HOME/public_html"
+		sites="/etc/apache2/sites-available"
+		echo -e "\tDomain Name "
+		echo -e "\t*********** "
+		for domain in $(ls $sites)
+		do
+			if [ $domain != 000-default.conf ] && [ $domain != default-ssl.conf ] && [ $domain != localhost.conf ]; then
+				echo $domain | sed "s/\.conf/ /g"
+			fi
+		done
+
+		# Entrer le nom de domaine à supprimer
+		read -p "Copy and paste the domain name here : " domainname
+		
+		# 1. supprimer la base de données ? 
+		db_name=$(echo $domainname | sed "s/\./_/g")
+		read -p "Do you want to delete the database ? [y/N] : " del_db
+		case $del_db in
+			'y' | 'yes' )
+				delete_database $db_name
+				;;
+			'n' | 'no' )
+				echo "Auccune base de données n'as été supprimer "
+				;;
+			*)
+				echo "Auccune base de données n'as été supprimer "
+				;;
+		esac
+
+		# supprimer les certificat 
+		if [[ -f "$HOME/.domain_crt/${domainname}.crt" || -f "$HOME/.domain_crt/${domainname}.key" ]]; then
+			sudo rm "$HOME/.domain_crt/${domainname}.crt"
+			sudo rm "$HOME/.domain_crt/${domainname}.key"
+		fi
+		# 2. supprimer le lien symbolique dans /var/www/html
+		sudo unlink "/var/www/html/${domainname}"
+		# 3. supprimer le repertoire de travail ?
+		sudo rm -r "${public_html}/${domainname}"
+		# 4. effacer le domaine dans /etc/hosts
+		sudo sed -i "/# $domainname$/d" /etc/hosts 						  
+		sudo sed -i "/127.0.0.1 \t$domainname$/d" /etc/hosts
+		# 5. desactiver le site avec la fonction a2dissite
+		sudo a2dissite $domainname
+		# 6. supprimer le fichier de configuration dans /etc/apache2/sites-available/domain.ltd.conf
+		sudo rm "/etc/apache2/sites-available/${domainname}.conf"				
+		# 7. redemaree apache
+		sudo systemctl reload apache2
+		;;
+		# mettre à jour pour supprimer les domaines ssl
+	*)
+		echo "*** Liste des commandes ***"
+		echo -e "domain list \t\t\t pour lister les sites dcréer un nouveau nom de domaine"
+		echo -e "domain new \t\t\t pour créer un nouveau nom de domaine"
+		echo -e "domain new_name \t\t pour créer un nouveau nom de domaine dans un script"
+		echo -e "domain new_host \t\t pour créer un nouveau nom de domaine depuis l'ordinateur Host et le serveur"
+		echo -e "domain delete \t\t\t pour créer un nouveau nom de domaine"
+		echo -e "domain ssl \t\t\t pour créer un nouveau nom de domaine"
+		echo -e "domain ssl install \t\t pour installer https en local"
+		;;
+esac
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 OS=$(os kernel)
 case $OS in
 	'linux' )
-		case $1 in
-			'list')
-				sites="/etc/apache2/sites-available"
-				echo -e "\tListe des domain Name "
-				echo -e "\t********************* "
-				for domain in $(ls $sites)
-				do
-					if [ $domain != 000-default.conf ] && [ $domain != default-ssl.conf ] && [ $domain != localhost.conf ]; then
-						echo $domain | sed "s/\.conf/ /g"
-					fi
-				done
-				;;
-
-			"ssl" )
-				# sudo openssl req -x509 -days 365 -newkey rsa:2048 -keyout $HOME/localhost.key -out $HOME/localhost.crt
-				if [[ ! -d $HOME/.domain_crt ]]; then
-					mkdir $HOME/.domain_crt
-				fi
-				# Entrer nom de domaine
-				domainname=$(repeat_as_long_negative '[a-z]{1,}\.[a-z]{2,6}' "Enter your new domain name : ")
-
-				if [[ ! -f "$HOME/.domain_crt/${domainname}.key" ]] && [[ ! -f "$HOME/.domain_crt/${domainname}.crt" ]]; then
-					sudo openssl req -x509 -days 365 -newkey rsa:2048 -keyout $HOME/.domain_crt/$(echo "${domainname}.key" ) -out $HOME/.domain_crt/$(echo "${domainname}.crt")
-					# Créer le fichier virtualhost ssl
-					create_virtual_host_file_ssl $domainname $domainname
-				fi
-				# créer la base de données
-				new mysql database
-				# créer le repertoire de travail
-				public_html="$HOME/public_html"
-				if [[ ! -d $public_html ]]; then mkdir $public_html; fi
-
-				work_dir="${public_html}/${domainname}"
-				if [[ ! -d $work_dir ]]; then mkdir $work_dir; fi
-				# sudo chown -R www-data "$work_dir"
-
-				# créer un lien symbolique dans /var/www/html/domain
-				sudo ln -sr $work_dir /var/www/html
-				# write domain in host
-				write_domain_in_hosts $domainname
-				
-				# créer le fichier virtualhost_ssl
-				create_virtual_host_file_ssl $domainname $domainname 
-
-				# attribuer les droits
-				sudo chown -R www-data $work_dir
-				sudo chmod -R 774 $work_dir
-				
-				# activer le site avec a2ensite
-				sudo a2ensite "${domainname}.conf"
-				sudo a2enmod ssl
-				sudo a2enmod rewrite
-				# redemarre apache
-				sudo systemctl reload apache2
-				;;
-			'new' )
-				# Entrer nom de domaine
-				domainname=$(repeat_as_long_negative '[a-z]{1,}\.[a-z]{2,6}' "Enter your new domain name : ")
-				# créer la base de données
-				new mysql database
-				# créer le repertoire de travail
-				public_html="$HOME/public_html"
-				if [[ ! -d $public_html ]]; then mkdir $public_html; fi
-
-				work_dir="${public_html}/${domainname}"
-				if [[ ! -d $work_dir ]]; then mkdir $work_dir; fi
-				# sudo chown -R www-data "$work_dir"
-
-				# attribuer les droits
-				sudo chown -R www-data $work_dir
-				sudo chmod -R 774 $work_dir
-
-				sudo ln -sr $work_dir /var/www/html
-				write_domain_in_hosts $domainname
-				# créer le fichier virtualhost dans /etc/apache2/sites-available/domain.ltd.conf
-				create_virtual_host_file $domainname $domainname 
-				sudo a2ensite "${domainname}.conf"
-				sudo a2enmod rewrite
-				sudo systemctl restart apache2
-				;;
-			'new_name' )
-				# Utilisation : domain new_name
-				# Entrer nom de domaine
-				domainname=${2}
-
-				# créer le repertoire de travail
-				public_html="$HOME/public_html"
-				if [[ ! -d $public_html ]]; then mkdir $public_html; fi
-
-				work_dir="${public_html}/${domainname}"
-				if [[ ! -d $work_dir ]]; then mkdir $work_dir; fi
-				# sudo chown -R www-data "$work_dir"
-
-				# attribuer les droits
-				sudo chown -R www-data $work_dir
-				sudo chmod -R 774 $work_dir
-
-				sudo ln -sr $work_dir /var/www/html
-				write_domain_in_hosts $domainname
-				# créer le fichier virtualhost dans /etc/apache2/sites-available/domain.ltd.conf
-				create_virtual_host_file $domainname $domainname 
-				sudo a2ensite "${domainname}.conf"
-				sudo a2enmod rewrite
-				sudo systemctl restart apache2
-				;;
-			'new_host' )
-				# Inscrire le domaine dnas le host
-				domainname=$(repeat_as_long_negative '[a-z]{1,}\.[a-z]{2,6}' "Enter your new domain name : ")
-				write_domain_in_hosts $domainname
-				;;
-			'delete')
-				# lister les fichiers du dossier : éalsdkj
-				# lister la liste des sites
-				public_html="$HOME/public_html"
-				sites="/etc/apache2/sites-available"
-				echo -e "\tDomain Name "
-				echo -e "\t*********** "
-				for domain in $(ls $sites)
-				do
-					if [ $domain != 000-default.conf ] && [ $domain != default-ssl.conf ] && [ $domain != localhost.conf ]; then
-						echo $domain | sed "s/\.conf/ /g"
-					fi
-				done
-
-				# Entrer le nom de domaine à supprimer
-				read -p "Copy and paste the domain name here : " domainname
-				
-				# 1. supprimer la base de données ? 
-				db_name=$(echo $domainname | sed "s/\./_/g")
-				read -p "Do you want to delete the database ? [y/N] : " del_db
-				case $del_db in
-					'y' | 'yes' )
-						delete_database $db_name
-						;;
-					'n' | 'no' )
-						echo "Auccune base de données n'as été supprimer "
-						;;
-					*)
-						echo "Auccune base de données n'as été supprimer "
-						;;
-				esac
-
-				# supprimer les certificat 
-				if [[ -f "$HOME/.domain_crt/${domainname}.crt" || -f "$HOME/.domain_crt/${domainname}.key" ]]; then
-					sudo rm "$HOME/.domain_crt/${domainname}.crt"
-					sudo rm "$HOME/.domain_crt/${domainname}.key"
-				fi
-				# 2. supprimer le lien symbolique dans /var/www/html
-				sudo unlink "/var/www/html/${domainname}"
-				# 3. supprimer le repertoire de travail ?
-				sudo rm -r "${public_html}/${domainname}"
-				# 4. effacer le domaine dans /etc/hosts
-				sudo sed -i "/# $domainname$/d" /etc/hosts 						  
-				sudo sed -i "/127.0.0.1 \t$domainname$/d" /etc/hosts
-				# 5. desactiver le site avec la fonction a2dissite
-				sudo a2dissite $domainname
-				# 6. supprimer le fichier de configuration dans /etc/apache2/sites-available/domain.ltd.conf
-				sudo rm "/etc/apache2/sites-available/${domainname}.conf"				
-				# 7. redemaree apache
-				sudo systemctl reload apache2
-				;;
-				# mettre à jour pour supprimer les domaines ssl
-			*)
-				echo "*** Liste des commandes ***"
-				echo -e "domain list \t\t\t pour lister les sites dcréer un nouveau nom de domaine"
-				echo -e "domain new \t\t\t pour créer un nouveau nom de domaine"
-				echo -e "domain new_name \t\t pour créer un nouveau nom de domaine dans un script"
-				echo -e "domain new_host \t\t pour créer un nouveau nom de domaine depuis l'ordinateur Host et le serveur"
-				echo -e "domain delete \t\t\t pour créer un nouveau nom de domaine"
-				echo -e "domain ssl \t\t\t pour créer un nouveau nom de domaine"
-				echo -e "domain ssl install \t\t pour installer https en local"
-				;;
-		esac
 		;;
 	'wsl')
 		# repertoire de travail sera créer dans /mnt/c/Users/username/public_html
