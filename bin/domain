@@ -97,24 +97,57 @@ create_database () {
 }
 
 write_domain_in_hosts () {
+	KERNEL=$(os kernel)
 	DOMAIN="${1}"
-	if [[ ! $(grep "$DOMAIN$" /etc/hosts) ]]; then 
-		sudo bash -c "echo -e '# $DOMAIN' >> /etc/hosts"
-		sudo bash -c "echo -e '127.0.0.1 \t$DOMAIN' >> /etc/hosts"
-	else
-		echo "le domain choisi existe dans le fichier /etc/hosts"
-	fi
+
+
+	case $KERNEL in
+		'linux' )
+			if [[ ! $(grep "$DOMAIN$" /etc/hosts) ]]; then 
+				sudo bash -c "echo -e '# $DOMAIN' >> /etc/hosts"
+				sudo bash -c "echo -e '127.0.0.1 \t$DOMAIN' >> /etc/hosts"
+			else
+				echo "le domain choisi existe dans le fichier /etc/hosts"
+			fi
+			;;
+		'wsl')
+			FICHIER_HOSTS_WINDOWS="/mnt/c/Windows/system32/drivers/etc/hosts"
+			if [[ ! $(grep "$DOMAIN$" $FICHIER_HOSTS_WINDOWS) ]]; then 
+				sudo bash -c "echo -e '# $DOMAIN' >> $FICHIER_HOSTS_WINDOWS"
+				sudo bash -c "echo -e '127.0.0.1 \t$DOMAIN' >> $FICHIER_HOSTS_WINDOWS"
+			else
+				echo "le domain choisi existe dans le fichier $FICHIER_HOSTS_WINDOWS"
+			fi
+			;;
+	esac
 }
 
 
 write_domain_in_hosts_locally () {
-        DOMAIN="${1}"
-        if [[ ! $(grep "$DOMAIN$" /etc/hosts) ]]; then
-                sudo bash -c "echo -e '# $DOMAIN' >> /etc/hosts"
-                sudo bash -c "echo -e '127.0.0.1 \t$DOMAIN' >> /etc/hosts"
-        else
-                echo "le domain choisi existe dans le fichier /etc/hosts"
-        fi
+	KERNEL=$(os kernel)
+    DOMAIN="${1}"
+
+    case $KERNEL in
+    	'linux' )
+	        if [[ ! $(grep "$DOMAIN$" /etc/hosts) ]]; then
+	            sudo bash -c "echo -e '# $DOMAIN' >> /etc/hosts"
+	            sudo bash -c "echo -e '127.0.0.1 \t$DOMAIN' >> /etc/hosts"
+	        else
+	            echo "le domain choisi existe dans le fichier /etc/hosts"
+	        fi
+
+    		;;
+    	'wsl' )
+			FICHIER_HOSTS_WINDOWS="/mnt/c/Windows/system32/drivers/etc/hosts"
+	        if [[ ! $(grep "$DOMAIN$" $FICHIER_HOSTS_WINDOWS) ]]; then
+	            sudo bash -c "echo -e '# $DOMAIN' >> $FICHIER_HOSTS_WINDOWS"
+	            sudo bash -c "echo -e '127.0.0.1 \t$DOMAIN' >> $FICHIER_HOSTS_WINDOWS"
+	        else
+	            echo "le domain choisi existe dans le fichier $FICHIER_HOSTS_WINDOWS"
+	        fi
+			;;
+    esac
+
 }
 
 
@@ -296,8 +329,17 @@ case $1 in
 		# 3. supprimer le repertoire de travail ?
 		sudo rm -r "${public_html}/${domainname}"
 		# 4. effacer le domaine dans /etc/hosts
-		sudo sed -i "/# $domainname$/d" /etc/hosts 						  
-		sudo sed -i "/127.0.0.1 \t$domainname$/d" /etc/hosts
+		KERNEL=$(os kernel)
+		case $KERNEL in 
+			'linux')
+				sudo sed -i "/# $domainname$/d" /etc/hosts 						  
+				sudo sed -i "/127.0.0.1 \t$domainname$/d" /etc/hosts
+			;;
+			'wsl')
+				sudo sed -i "/# $domainname$/d" /mnt/c/Windows/system32/drivers/etc/hosts 						  
+				sudo sed -i "/127.0.0.1 \t$domainname$/d" /mnt/c/Windows/system32/drivers/etc/hosts
+			;;
+		esac
 		# 5. desactiver le site avec la fonction a2dissite
 		sudo a2dissite $domainname
 		# 6. supprimer le fichier de configuration dans /etc/apache2/sites-available/domain.ltd.conf
