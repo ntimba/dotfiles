@@ -187,14 +187,7 @@ case $1 in
 		else
 			echo "copy of [ php.ini ] exist "
 		fi
-		# 8. Configuration de mysql
-		read -p "Voulez vous configurer mysql et installation phpmyadmin ? yes: " mysqlconfig
-		case $mysqlconfig in
-			'yes' )
-			~/.dotfiles/scripts/configmysql.sh 
-			sudo apt install phpmyadmin
-				;;
-		esac
+
 		# 9. Démarrer apache2
 		sudo service apache2 start
 
