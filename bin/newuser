@@ -22,4 +22,8 @@ case $1 in
 	'linux')
 		echo "Fonction pas encore créer"
 		;;
+	*)
+		echo -e "newuser mysql \t\t Pour créer un nouvel utilisateur Mysql"
+		echo -e "newuser linux \t\t Pour créer un nouvel utilisateur linux"
+		;;
 esac
