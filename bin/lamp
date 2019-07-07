@@ -58,7 +58,9 @@ search_replace () {
 domain_conf () { 
 	# Paramètre 1 : le nom de domaine, Paramètre 2 : le nom du dossier du nom de domaine
 	# domain_conf $DOMAIN $DOMAIN
-	DOMAIN="${1}.mik"
+	if [[ $1 != 'localhost' ]]; then
+		DOMAIN="${1}.mik"
+	fi
 	DOMAIN_CONF="${DOMAIN}.conf"
 	VHOST_CONF="/etc/apache2/sites-available/${DOMAIN_CONF}"
 	if [[ ! -f "$VHOST_CONF" ]]; then
@@ -74,6 +76,10 @@ domain_conf () {
 		echo "Le fichier VirtualHost existe déjà"
 	fi
 }
+
+
+
+
 help () { # la fonction affiche de l'aide pour l'installation de dotfiles
   echo "Usage: $BIN_NAME <command>"
   echo
