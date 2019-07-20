@@ -256,6 +256,7 @@ case $1 in
 		sudo a2ensite "${domainname}.conf"
 		sudo a2enmod rewrite
 		sudo systemctl restart apache2
+		restart_wsl 
 		;;
 	'new_name' )
 		# Utilisation : domain new_name

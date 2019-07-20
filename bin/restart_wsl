@@ -1,0 +1,12 @@
+#!/usr/bin/env bash 
+
+KERNEL=$(os kernel)
+
+echo $KERNEL
+
+
+case $KERNEL in
+	'wsl' )
+		powershell.exe -Command "Get-Service LxssManager | Restart-Service"
+		;;
+esac
