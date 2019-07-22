@@ -347,8 +347,9 @@ case $1 in
 		sudo rm "/etc/apache2/sites-available/${domainname}.conf"				
 		# 7. redemaree apache
 		sudo systemctl reload apache2
-		;;
+		restart_wsl
 		# mettre à jour pour supprimer les domaines ssl
+		;;
 	*)
 		echo "*** Liste des commandes ***"
 		echo -e "domain list \t\t\t pour lister les sites dcréer un nouveau nom de domaine"
