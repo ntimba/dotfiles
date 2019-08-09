@@ -8,27 +8,173 @@ fi
 
 
 case $1 in
-	'uninstall' | '-u' )
-			# fonction pour desinstaller dotfiles
-			unlink ~/.profile
-			unlink ~/.bash_aliases
-			if [[ -f $HOME/.profile.bak ]]; then
-				mv $HOME/.profile.bak $HOME/.profile
-			fi
+	'--uninstall' | '-u' | 'delete' )
+			case $2 in 
+				'--pm')
+					# Liste des Package Manager
+					while read line 
+					do
+						packageManager=$( echo $line | cut -d : -f1)
+						echo -e "\t-> $packageManager"
+					done < $DOTFILES/packages/.packagemanager.list
+					# Choisir un Package Manager
+					read -p "Entrer le nom du Package Manager que vous voulez supprimer : " packagemanager_name
+					# Supprimer la ligne qui porte le nom du package manager choisi 
+					
+					if [[ $(grep $packagemanager_name $DOTFILES/packages/.packagemanager.list) ]]; then
+						# Supprimer la ligne du packagemanager
+						PACKAGEMANAGER_PATTERN="${packagemanager_name}"
+						sed -i "/$PACKAGEMANAGER_PATTERN/d" $DOTFILES/packages/.packagemanager.list
+						# echo "ajout de la ligne package manager dans le fichier .packagemanager.list"
+					else
+						echo "$packagemanager_name introuvable"
+					fi
 
-			echo -e "\n Dotfiles est desinstallé"
+					# lire le dossier $DOTFILES/package ligne par ligne
+					# si on trouve le fichier qu'on cherche on le supprime
+
+				;;
+				'--dot')
+					# fonction pour desinstaller dotfiles
+					unlink ~/.profile
+					unlink ~/.bash_aliases
+					if [[ -f $HOME/.profile.bak ]]; then
+						mv $HOME/.profile.bak $HOME/.profile
+					fi
+
+					echo -e "\n Dotfiles est desinstallé"
+				;;
+				*)
+					echo "Commande pour desinstallé dotfiles"
+				;;
+			esac
 		;;
-	'new' | 'add')
+	'--update')
+			sudo apt update
+		;;
+	'--install' | '-i')
+			# liste
 			case $2 in
-				'ssh-key' )
+
+				'packages' )
+						
+					
+					if [[ $( is_empty $DOTFILES/packages/.packagemanager.list ) = 'true' ]]; then
+						echo "Vous n'avez aucun Package Manager dans le Dotfiles"
+						echo "Pour ajouter un Package Manager : dotfile --add --pm"
+					else
+						while read line 
+						do
+							packageManager=$( echo $line | cut -d : -f1)
+							echo -e "\t-> $packageManager"
+						done < $DOTFILES/packages/.packagemanager.list
+
+						while [[ -z $packagemanager_name ]]; do
+							read -p "Écrivez le nom de votre Package Manager : " packagemanager_name
+						done
+						if [[ $(grep $packagemanager_name $DOTFILES/packages/.packagemanager.list ) ]]; then
+							PACKAGE_MANAGER_LINE=$( grep $packagemanager_name $DOTFILES/packages/.packagemanager.list )
+							PACKAGE_MANAGER_LIST=$( echo $PACKAGE_MANAGER_LINE | cut -d : -f2)
+							FORMAT_INSTALLATION=$( echo $PACKAGE_MANAGER_LINE | cut -d : -f3)
+
+							# Installer les paquet 
+							# sudo sed -i "s/${1}/${2}/g" $3
+
+
+							while read line
+							do
+								# ne pas lire des commentaires
+								#pat="^#[a-z ',]+"
+								pat="^#[a-z (),éà'-]+"
+								if [[ $line =~ $pat ]]; then
+									comment=${line}
+								fi
+
+								if [[ $line != $comment && ! -z $line ]]; then
+									# rendre ce morceau exécutable
+									sudo echo $FORMAT_INSTALLATION | sed "s/@package/${line}/g"
+								fi
+							done < $DOTFILES/packages/$PACKAGE_MANAGER_LIST
+
+						else
+							echo "$packagemanager_name : Ce Package Manager n'existe pas"
+						fi
+					fi
+
+					;;
+				*)
+				echo "dot -i packages"
+				;;
+			esac
+		;;
+	'--new' | '--add' | '-a')
+			case $2 in
+				'--ssh-key' )
 					generate_ssh_keys
 					;;
+				'--pm' | 'packagemanager')
+					add_packagemanager packagemanager install_format
+					;;
+				'--install' | '-i')
+
+									
+					;;
+				'--packages' | '--package')
+
+					echo "Liste des Package Manager"
+					while read line 
+					do
+						packageManager=$( echo $line | cut -d : -f1)
+						echo -e "\t-> $packageManager"
+					done < $DOTFILES/packages/.packagemanager.list
+
+					if [[ -z $3 ]]; then
+						echo "Vous n'avez pas inclut de fichier ex: dotfiles --add --packages path/filename.txt"
+					else
+					# récupérer le nom du fichier de la liste des paquets
+						while [[ -z $packagemanager_name ]]; do
+							read -p "Écrivez le nom de votre Package Manager : " packagemanager_name
+						done
+
+						PACKAGE_MANAGER_LINE=$( grep $packagemanager_name $DOTFILES/packages/.packagemanager.list )
+						if [[ $( grep $packagemanager_name $DOTFILES/packages/.packagemanager.list ) ]]; then
+							# récupéré le nom du fichier 
+							PACKAGES_LIST=$(echo $PACKAGE_MANAGER_LINE | cut -d : -f2)
+							if [[ -f $3 ]]; then
+								# lire fichier ligne par ligne 
+								while read line 
+								do
+									if [[ $( grep $line $DOTFILES/packages/$PACKAGES_LIST ) ]]; then
+										echo "Le paquet $line est dans le fichier $PACKAGES_LIST"
+									else
+										# echo "Le paquet $line n'est pas dans le fichier $PACKAGES_LIST"
+										# On ajoute $line dans le fichier $PACKAGE_LIST
+										echo $line >> $DOTFILES/packages/$PACKAGES_LIST
+									fi
+ 
+								done < $3
+							fi
+						else
+							echo "$packagemanager_name : Ce Package Manager n'existe pas"
+						fi
+
+					fi
+					;;
 			esac
-			echo "Ajouter une clé ssh <dotfiles add ssh-key>"
 		;;
 		*)
-			echo "Commande du dotfiles"
-			echo "new/add => pour ajouter un truc"
-			echo "uninstall/ -u => pour desinstallé dotfiles"
-		;;
+
+			echo "Pour démarrer l'édition sur une ligne spécifique, placez le numéro de ligne
+précédé d'un « + » devant le nom de fichier. Pour ajouter le numéro de
+colonne, placez-le derrière le numéro de ligne, séparé par une virgule.
+Lorsque le fichier est « - », nano lit le texte sur l'entrée
+standard."
+			echo -e "\n"
+
+			echo -e "Option \t Option longue[options] \t\t Description"
+			echo -e "-U \t --uninstall \t\t\t\t Pour deinstaller le dotfiles, il va supprimer les variable path etc ..."
+			echo -e "-u \t --update \t\t\t\t Pour mettre à jour tout le system"
+			echo -e "-a,-n \t --add, --new [ssh-key,pm,packages (+filename.txt)] \t Pour ajouter une liste des paquet, une clé ssh, packagemanager"
+			echo -e "-I \t --install \t\t\t\t Pour installer des paquets"
+
 esac

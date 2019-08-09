@@ -1,0 +1,2 @@
+choco:choco.list:choco.exe install @package:wsl
+apt:apt.list:apt install @package:linux

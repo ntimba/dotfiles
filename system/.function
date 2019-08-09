@@ -251,3 +251,69 @@ generate_ssh_keys () {
 }
 
 # Création de nom de domain
+
+# Repeat as long negative
+repeat_as_long_negative () {
+	# Utilisation : de la fonction : repeat_as_long_negative $pattern $text
+	pattern="${1}" # format du nom de domaine : domain.ltd
+	text="${2}"
+	while [[ -z $variable ]] || [[ ! $variable =~ $pattern ]]; do
+		read -p "${text}" variable
+	done
+	echo $variable
+}
+
+
+# Add Package Manager
+add_packagemanager () {
+	
+	YOUR_KERNEL=$(os kernel)
+
+	read -p 'Entrez le nom du Package Manager : ' packagemanager_name
+	# format du fichier
+	# packages_list=$(repeat_as_long_negative '[a-z]{1,}\.[list]{2,6}' "Enter your new domain name : ")
+	# packages_list=$(repeat_as_long_negative '[a-z]{1,}\.[list]' "Entrez le nom de la liste des Packages : ")
+
+	packages_list=$(repeat_as_long_negative "$packagemanager_name\.list" "Entrez le nom de la liste des Packages ex. filename.list: ")
+
+	os_name=$(repeat_as_long_negative "[a-z]{1,}" "Entrez le nom de votre Kernel. Votre kernel est: $YOUR_KERNEL : ")
+
+	read -p "Entrez le format d'installation ex. apt install @package: " installation_format
+	
+	if [[ ! -f $DOTFILES/packages/.packagemanager.list ]]; then
+		touch $DOTFILES/packages/.packagemanager.list
+	fi
+
+	# Créer le fichier packages.list
+	if [[ ! -f $DOTFILES/packages/$packages_list ]]; then
+		touch $DOTFILES/packages/$packages_list
+	fi
+
+	# ajouter le pm seulement s'il n'existe pas
+	if [[ ! $(grep $packagemanager_name $DOTFILES/packages/.packagemanager.list) ]]; then
+		echo "$packagemanager_name:$packages_list:$installation_format:$os_name" >> "$DOTFILES/packages/.packagemanager.list"
+
+		# Si le fichier packages_list n'existe pas dans $DOTFILES_PACKAGES_DIR on le créent
+		DOTFILES_PACKAGES_DIR="${DOTFILES}/packages"
+		find $DOTFILES_PACKAGES_DIR -name apt.list
+		# if [[ ! $(find $DOTFILES_PACKAGES_DIR -name packages_list) ]]; then
+		#	touch nom_fichier
+		# fi
+
+	else
+		echo "Le package manager existe déjà"
+	fi
+}
+
+
+is_empty () { # is file empty or not
+	if [[ $(cat $1) ]]; then
+		# le fichier n'est pas vide
+		if [[ $( stat -c %s $1 ) > 0 ]]; then
+			echo "false"
+		fi
+	else
+		# le fichier est vide
+		echo "true"
+	fi
+}
