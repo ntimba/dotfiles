@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+sudo service postfix start
+maildev --ip 127.0.1.1
