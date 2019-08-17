@@ -104,7 +104,7 @@ case $1 in
 		done
 
 		# uniquement pour débogage
-		uninstall_packages
+		#uninstall_packages
 
 		# remettre les fichier de configuration postfix en ordre
 		# corriger leprobleme du :
