@@ -1,0 +1,162 @@
+#!/usr/bin/env bash
+
+# --------
+uninstall_packages(){		
+	for packages in ${maildev_apps[*]}
+	do
+		sudo apt purge -y $packages
+	done
+}
+
+
+help(){
+	echo -e "Usage: devmail [options]\n"
+	echo -e "Options:"
+	echo -e "-i, --install \t\t install maildev and dependent packages"
+	echo -e "-u, --unstall \t\t uninstalls only the maildev package"
+	echo -e "-s, --start \t\t start maildev correctly"
+	echo -e "-h, --help \t\t output usage information"
+}
+
+get_smtp_phpini(){	
+	contains_smtpport=$(cat /etc/php/7.2/apache2/php.ini | grep "smtp_port")
+	smtp_port_raw=$(echo $contains_smtpport | cut -d = -f2)
+	smtp_port=$(echo $smtp_port_raw | sed -e 's/ //g')
+	echo $smtp_port
+}
+set_smtport_phpini(){
+	#Utilisation : set_smtport_phpini $PHP_INI $NEW_SMTP_PORT
+	PHP_INI="${1}"
+	SMTP_PORT="${2}"
+	if [[ $(cat $PHP_INI | grep "smtp_port") ]]; then
+		SMTP_PORT_LINE=$(cat $PHP_INI | grep "smtp_port")
+		NEW_SMTP_PORT="smtp_port = $SMTP_PORT"
+
+		sudo sed -i "s/${SMTP_PORT_LINE}/${NEW_SMTP_PORT}/g" $PHP_INI
+	fi
+}
+
+set_relayhost_postfix () { 
+		# utilisation : set_relayhost_postfix "127.0.0.1:${smtp_port}"
+		# save the config file
+	if [[ ! -f /etc/postfix/main.cf.bak ]]; then
+		sudo cp /etc/postfix/main.cf /etc/postfix/main.cf.bak
+	fi
+
+	# si on trouve la ligne relayhost
+	if [[ $(cat /etc/postfix/main.cf | grep "relayhost") ]]; then
+		# recuperer la ligne relayhost
+		# diviser la ligne relayhost en deux (la partie clé et la partie valeur)
+		old_relayhost=$(cat /etc/postfix/main.cf | grep "relayhost") # la ligne qu'on cherche à remplacer
+		old_relayhost_key_raw=$(echo $old_relayhost | cut -d = -f1) # la key (relayhost)
+
+		old_relayhost_value_raw=$(echo $old_relayhost | cut -d = -f2) # la value (relayhost)
+		old_relayhost_value=$(echo $old_relayhost_value_raw | sed -e 's/ //g')
+
+		new_relayhost_value="${1}"
+
+		# test
+		if [[ $old_relayhost_value != $new_relayhost_value ]]; then
+			# on remplace la ligne completement
+			new_relayhost="${old_relayhost_key_raw}= ${new_relayhost_value}"
+			sudo sed -i "s/${old_relayhost}/${new_relayhost}/g" /etc/postfix/main.cf
+		fi
+
+	fi
+}
+
+
+# -----------------
+# 1. INSTALLER LES PAQUETS
+maildev_apps=(
+	npm
+	postfix
+	maildev
+)
+
+# LES VARIABLES
+SERVER_NAME=127.0.0.1
+PHP_INI="/etc/php/7.2/apache2/php.ini"
+
+case $1 in
+	'--install' | '-i' )
+		for maildev_app in ${maildev_apps[*]}
+		do
+			if [[ ! $(which $maildev_app) ]]; then
+				if [[ $maildev_app != 'maildev' ]]; then 
+					sudo apt install -y $maildev_app
+				fi
+
+				if [[ $maildev_app = 'maildev' ]]; then
+					sudo npm install -g maildev
+				fi
+			fi
+		done
+		;;
+	'--uninstall' | '-u')
+		for maildev_app in ${maildev_apps[*]}
+		do
+			if [[ $(which $maildev_app) ]]; then
+				if [[ $maildev_app = 'maildev' ]]; then
+					sudo npm uninstall -g $maildev_app
+				fi
+			fi
+		done
+
+		# uniquement pour débogage
+		uninstall_packages
+
+		# remettre les fichier de configuration postfix en ordre
+		# corriger leprobleme du :
+		SERVER_NAME=""
+		SMTP_PORT=""
+		set_relayhost_postfix " "
+		# remettre les fichier de configuration PHP INI en ordre
+		NEW_SMTP_PORT="25"
+		# corriger (remplacer par le port par défaut 25)
+		set_smtport_phpini $PHP_INI $NEW_SMTP_PORT
+
+		;;
+	'--start' | '-s')
+		# vérifier si maildev est installer ou pas
+		if [[ ! $(which maildev) ]]; then
+			echo -e "\nCommand 'devmail --start' not found, but can be installed with : \n"
+			echo -e "devmail --install\n"
+		else
+			# RECUPERER LE PORT SMTP DU FICHIER php.ini
+			smtp_port=$(get_smtp_phpini)
+
+			# MODIFIER LA LIGNE relayhost = DU FICHIER /etc/postfix/main.cf 
+			set_relayhost_postfix "127.0.0.1:${smtp_port}"
+
+			# REDEMARRER POSTFIX
+			sudo service postfix restart
+
+			# DEMARRER MAILDEV AVEC LE PORT SMTP DU FICHIER php.ini
+			maildev --smtp $smtp_port
+				#maildev --ip 127.0.0.1
+				# SI MAILDEV NE DEMARRE PAS
+			if [[ $(maildev --smtp $smtp_port) ]]; then
+				# ON CHOISI UN AUTRE PORT SMTP
+					read -p "unable to start maildev, choose a different smtp port than $smtp_port : " new_smtp_port
+				# ON MODIFIE LE PORT SMTP PAR DEFAUT DU FICHIER php.ini
+				set_smtport_phpini $PHP_INI $new_smtp_port
+
+				# RECUPERER LE NOUVEAU PORT SMTP DU FICHIER php.ini
+				smtp_port=$(get_smtp_phpini)
+				# MODIFIER LA LIGNE RELAYHOST DU FICHIER /etc/postfix/main.cf
+				set_relayhost_postfix "127.0.0.1:${smtp_port}"
+				# REDEMARRE POSTFIX
+				sudo service restart postfix
+				# DEMARRER MAILDEV AVEC LE PORT SMTP DU FICHIER php.ini
+				maildev --smtp $smtp_port
+			fi
+		fi
+		;;
+	'-h' | '--help')
+			help
+		;;
+	*)
+			help
+		;;
+esac
