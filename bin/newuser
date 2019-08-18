@@ -23,6 +23,9 @@ case $1 in
 		echo "Fonction pas encore créer"
 		;;
 	*)
+		echo -e "Usage : newuser [options]\n"
+		
+		echo -e "Options:"
 		echo -e "--mysql \t\t Pour créer un nouvel utilisateur Mysql"
 		echo -e "--linux \t\t Pour créer un nouvel utilisateur linux"
 		;;
