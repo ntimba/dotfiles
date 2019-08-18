@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # peut être améliorer et ajouter dans functions 
 case $1 in
-	'mysql' )
+	'--mysql' )
 		if [[ -f ~/newuser.sql ]]; then
 			sudo rm ~/newuser.sql
 		fi
@@ -19,11 +19,11 @@ case $1 in
 
 		rm ~/newuser.sql
 		;;
-	'linux')
+	'--linux')
 		echo "Fonction pas encore créer"
 		;;
 	*)
-		echo -e "newuser mysql \t\t Pour créer un nouvel utilisateur Mysql"
-		echo -e "newuser linux \t\t Pour créer un nouvel utilisateur linux"
+		echo -e "--mysql \t\t Pour créer un nouvel utilisateur Mysql"
+		echo -e "--linux \t\t Pour créer un nouvel utilisateur linux"
 		;;
 esac
