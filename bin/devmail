@@ -15,6 +15,7 @@ help(){
 	echo -e "-i, --install \t\t install maildev and dependent packages"
 	echo -e "-u, --unstall \t\t uninstalls only the maildev package"
 	echo -e "-s, --start \t\t start maildev correctly"
+	echo -e "--smtp \t\t\t start maildev correctly"
 	echo -e "-h, --help \t\t output usage information"
 }
 
@@ -152,6 +153,28 @@ case $1 in
 				maildev --smtp $smtp_port
 			fi
 		fi
+		;;
+	'--smtp')
+			# Si c'est pas un nombre on démande de nouveau le nouveau port
+			# 
+			pattern="[1-9]{3,}"
+			# tant que c'est pas un nombre on continue de démander le nouveau port
+			# sinon on modifie le fichier php.ini et le fichier postfix/main.cf
+			while [[ -z $new_smtp_port ]] || [[ ! $new_smtp_port =~ $pattern ]]; do
+				read -p "Entrer un nouveau port  smpt: " new_smtp_port
+			done
+
+			# Changer le port des fichiers
+			# 1. modifier le port smtp du fichier PHP.INI
+			set_smtport_phpini $PHP_INI $new_smtp_port
+			# 2. Changer le port smtp du fichier postfix/main.cf
+			set_relayhost_postfix "127.0.0.1:${new_smtp_port}"
+
+			new_smtp_postfix=$(cat /etc/postfix/main.cf | grep relayhost)
+			new_smtp_phpini=$(cat /etc/php/7.2/apache2/php.ini | grep smtp_port)
+
+			echo "php.ini : $new_smtp_phpini"
+			echo "main.cf : $new_smtp_postfix"
 		;;
 	'-h' | '--help')
 			help
