@@ -81,6 +81,7 @@ domain_conf () {
 
 
 help () { # la fonction affiche de l'aide pour l'installation de dotfiles
+	BIN_NAME="LAMP"
   echo "Usage: $BIN_NAME <command>"
   echo
   echo "Commands:"
