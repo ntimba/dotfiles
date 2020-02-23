@@ -1,0 +1,259 @@
+#!/usr/bin/env bash
+
+# fonction pour afficher les command
+function commandProject
+{
+	echo -e "Option \t Options lognue[options]\t\tDescription"
+	echo -e "sass \t \t\t\t\t\tAfficher les commandes sass"
+	echo -e "wp \t wordpress \t\t\t\tAfficher les commandes wordpress"
+}
+
+function commandSass
+{
+	echo -e "Options \t[paramètre]\t\tDescription"
+	echo -e "sass \t\t--install \t\tPour installer sass"
+	echo -e "sass \t\t--new \t\t\tPour créer un nouveau projet"
+}
+
+
+# fonction installation sass
+function installSass
+{
+	if [[ ! $(which nodejs) ]]; then
+		sudo apt install -y nodejs
+		sudo apt install -y npm
+		npm install -g sass	
+	elif [[ $(which nodejs) ]]; then
+		if [[ ! $(which npm) ]]; then
+			sudo apt install -y npm
+		else
+			if [[ ! $(which sass) ]]; then
+				sudo npm install sass -g
+			else
+				echo "Sass est installé"
+			fi
+		fi
+	fi
+}
+
+# fonction pour créer des dossier
+function sassDirectories
+{
+	for i in ${1}
+	do
+		# if directorie does not exist, create one
+		if [[ ! -d $i ]]; then
+			mkdir $i
+		fi
+	done
+}
+
+
+function create_sass_dir_childs
+{
+	# $1 = parent_dir
+	# $2 = childs_array
+	sass_parent_dir="${1}"
+	sass_childs_dir="${2}"	
+
+	for i in $sass_childs_dir
+	do
+		# if directorie does not exist, create one
+		if [[ ! -d "${sass_parent_dir}/${i}" ]]; then
+			mkdir "${sass_parent_dir}/${i}"
+		else
+			echo "${sass_parent_dir}/${i} is already created"
+		fi
+	done
+}
+
+function include_list_in
+{
+	file_name="${1}" # main.scss in root of sass folder
+	sass_child="${2}" # directory name of sass child
+	project_dir="${3}" 
+
+	for file in `ls "${project_dir}/sass/${sass_child}"`
+	do
+	if [[ ! $( grep $file $file_name ) ]]; then
+		echo "@import '${sass_child}/${file}';"
+	else
+		echo "${file} : is already included"
+	fi
+	done
+	echo -e "\n"
+}
+
+
+# fonction pour créer des fichiers
+# $1 le dossier ou les fichiers seron créer
+# $2 liste de fichiers à créer
+
+function createFiles
+{
+	parent_dir="${1}"
+	files_list="${2}"
+
+	for file in $files_list
+	do
+		if [[ ! -f "${parent_dir}/${file}" ]]; then
+			touch "${parent_dir}/${file}"
+		else
+			echo "${parent_dir}${file} is already created"
+		fi
+	done
+}
+
+search_replace () {
+# la fonction rechercher remplacer
+	# Utilisation : search_replace $word_to_search $word_to_replace $filename
+	word_to_search="${1}"
+	word_to_replace="${2}"
+	filename="${3}"
+
+	sudo sed -i "s/${word_to_search}/${word_to_replace}/g" "${filename}"
+}
+
+
+
+
+case $1 in
+	'sass')
+		case $2 in
+			'--installation' | '-i')
+				installSass
+			;;
+			'--new')
+				OS=$(os kernel)
+				case $OS in
+					'wsl')
+						echo -e "\n"
+						echo -e "Tout les projet seront dans le dossier HOME \nvous pouvez précisé un chemin à partir du ${USERHOME}/chemin_projet"
+						read -p "Entrer le path du nouveau projet : " customPath
+					;;
+					*)
+						echo -e "\n"
+						echo -e "Tout les projet seront dans le dossier HOME \nvous pouvez précisé un chemin à partir du ${HOME}/chemin_projet"
+						read -p "Entrer le path du nouveau projet : " customPath
+					;;
+				esac
+				# Liste des variables
+				path="$USERHOME/${customPath}"
+				project_dir="${path}"
+				packagejson="${project_dir}/package.json"
+
+				
+				# PARENT AND CHILD LIST
+				sass_childs_list=( 'utilities' 'base' 'components' 'layout' 'pages' 'themes' 'vendors' )
+				utilities_files=( '_variables.scss' '_functions.scss' '_mixins.scss' '_placeholders.scss' )
+				base_files=( '_reset.scss' '_typography.scss' '_base.scss' '_animations.scss' )
+				components_files=( '_media.scss' '_carousel.scss' '_thumbnails.scss' )
+				layout_files=( '_grid.scss' '_header.scss' '_footer.scss' '_sidebar.scss' '_forms.scss' '_navigation.scss' )
+				pages_files=( '_home.scss' '_contact.scss' '_about.scss' )
+				themes_files=( '_theme.scss' '_admin.scss' )
+				vendors_files=()
+
+
+				# Si $path n'existe pas comme dossier, on le crée
+				if [[ ! -d "$path" ]]; then
+			
+					# create project directory
+					mkdir "$path" # mettre la command mkdir 
+					sass_dir="${path}/sass"
+					# create sass directory in $path if not exist
+					if [[ ! -d $sass_dir ]]; then
+						mkdir $sass_dir
+					else
+						echo "${sass_dir} is already created"
+					fi
+
+					create_sass_dir_childs $sass_dir "${sass_childs_list[*]}"
+
+					# create main.scss file 
+					if [[ ! -f "${sass_dir}/main.scss" ]]; then
+						touch "${sass_dir}/main.scss"
+					fi
+
+					# create files in sass_dir_childs
+					createFiles "${sass_dir}/utilities/" "${utilities_files[*]}"
+					createFiles "${sass_dir}/base/" "${base_files[*]}"
+					createFiles "${sass_dir}/components/" "${components_files[*]}"
+					createFiles "${sass_dir}/layout/" "${layout_files[*]}"
+					createFiles "${sass_dir}/pages/" "${pages_files[*]}"
+					createFiles "${sass_dir}/themes/" "${themes_files[*]}"
+					createFiles "${sass_dir}/vendors/" "${vendors_files[*]}"
+
+					# include files in main.scss
+					file_name="${sass_dir}/main.scss"
+					list_name="$components_files"
+					list_parent="components"
+					
+					include_list_in $file_name 'utilities' $project_dir
+					include_list_in $file_name 'base' $project_dir
+					include_list_in $file_name 'components' $project_dir
+					include_list_in $file_name 'layout' $project_dir
+					include_list_in $file_name 'pages' $project_dir
+					include_list_in $file_name 'themes' $project_dir
+					include_list_in $file_name 'vendors' $project_dir	
+
+					# Amélioration : generer un fichier package json automatiquement
+				else
+					# create sass architecture in $path
+					echo "$path is already created"
+
+					sass_dir="${path}/sass"
+					# create sass directory in $path if not exist
+					if [[ ! -d $sass_dir ]]; then
+						mkdir $sass_dir
+					else
+						echo "${sass_dir} is already created"
+					fi
+
+					create_sass_dir_childs $sass_dir "${sass_childs_list[*]}"
+					
+					# create main.scss file 
+					if [[ ! -f "${sass_dir}/main.scss" ]]; then
+						touch "${sass_dir}/main.scss"
+					fi
+
+					# create files in sass_dir_childs
+					createFiles "${sass_dir}/utilities/" "${utilities_files[*]}"
+					createFiles "${sass_dir}/base/" "${base_files[*]}"
+					createFiles "${sass_dir}/components/" "${components_files[*]}"
+					createFiles "${sass_dir}/layout/" "${layout_files[*]}"
+					createFiles "${sass_dir}/pages/" "${pages_files[*]}"
+					createFiles "${sass_dir}/themes/" "${themes_files[*]}"
+					createFiles "${sass_dir}/vendors/" "${vendors_files[*]}"
+
+					# include files in main.scss
+					file_name="${sass_dir}/main.scss"
+					list_name="$components_files"
+					list_parent="components"
+					
+					include_list_in $file_name 'utilities' $project_dir
+					include_list_in $file_name 'base' $project_dir
+					include_list_in $file_name 'components' $project_dir
+					include_list_in $file_name 'layout' $project_dir
+					include_list_in $file_name 'pages' $project_dir
+					include_list_in $file_name 'themes' $project_dir
+					include_list_in $file_name 'vendors' $project_dir
+
+					# Amélioration : generer un fichier package json automatiquement
+					
+				fi
+				
+			;;
+			*)
+				commandSass
+			;;
+		esac
+	;;
+	'wp' | 'wordpress')
+		echo "que faire avec wordpress"
+	;;
+	*)
+		commandProject
+	;;
+esac 
+
+
