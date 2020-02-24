@@ -76,12 +76,12 @@ function include_list_in
 	for file in `ls "${project_dir}/sass/${sass_child}"`
 	do
 	if [[ ! $( grep $file $file_name ) ]]; then
-		echo "@import '${sass_child}/${file}';"
+		echo "@import '${sass_child}/${file}';" >> $file_name
 	else
 		echo "${file} : is already included"
 	fi
 	done
-	echo -e "\n"
+	echo -e "\n" >> $file_name
 }
 
 
