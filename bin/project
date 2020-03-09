@@ -159,7 +159,7 @@ case $1 in
 			
 					# create project directory
 					mkdir "$path" # mettre la command mkdir 
-					sass_dir="${path}/sass"
+					sass_dir="${path}/scss"
 					# create sass directory in $path if not exist
 					if [[ ! -d $sass_dir ]]; then
 						mkdir $sass_dir
@@ -201,7 +201,7 @@ case $1 in
 					# create sass architecture in $path
 					echo "$path is already created"
 
-					sass_dir="${path}/sass"
+					sass_dir="${path}/scss"
 					# create sass directory in $path if not exist
 					if [[ ! -d $sass_dir ]]; then
 						mkdir $sass_dir
